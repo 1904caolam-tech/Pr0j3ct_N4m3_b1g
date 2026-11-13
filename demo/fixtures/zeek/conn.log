@@ -1,0 +1,12 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	conn
+#open	2026-11-12-08-13-00
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto	duration	orig_bytes	resp_bytes	conn_state
+#types	time	string	addr	port	addr	port	enum	interval	count	count	string
+1794471000.000000	C1zB9x	10.0.4.15	50000	203.0.113.20	443	tcp	12.3	2048	8192	SF
+1794471100.000000	C2yC8w	10.0.4.15	50001	203.0.113.20	443	tcp	0.9	512	1024	SF
+1794471200.000000	C3xD7v	10.0.4.15	50002	10.0.4.20	22	tcp	420.0	900	1200	SF
+1794471210.000000	C4wE6u	10.0.4.15	50003	10.0.4.20	8080	tcp	2.1	330	210	SF

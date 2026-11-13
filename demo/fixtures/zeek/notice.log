@@ -1,0 +1,10 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	notice
+#open	2026-11-12-08-31-00
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	fuid	proto	note	msg	sub	src	dst	p	n	peer_descr	actions	suppress_for	dropped
+#types	time	string	addr	port	addr	port	string	enum	string	string	string	addr	addr	port	count	string	set[enum]	interval	bool
+1794472212.512345	CHhAvVGS1DHFjwGM9	203.0.113.9	40002	10.0.4.20	8080	-	tcp	Scan::Port_Scan	203.0.113.9 scanned at least 15 unique ports of host 10.0.4.20 in 0m2s	-	203.0.113.9	10.0.4.20	8080	-	zeek	Notice::ACTION_LOG	3600.000000	F
+1794471140.100000	CwR3Yq2Xz9pQ1sV7a	203.0.113.9	40010	10.0.4.20	22	-	tcp	SSH::Password_Guessing	203.0.113.9 appears to have guessed 20 passwords against 2 hosts	-	203.0.113.9	10.0.4.20	22	-	zeek	Notice::ACTION_LOG	3600.000000	F

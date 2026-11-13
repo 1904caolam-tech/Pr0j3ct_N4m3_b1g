@@ -1,0 +1,13 @@
+attack_technique: T1046
+display_name: Network Service Discovery
+atomic_tests:
+- name: Port Scan using nmap
+  auto_generated_guid: 8c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e63
+  description: Scans common ports on a target host.
+  supported_platforms:
+  - linux
+  - macos
+  executor:
+    name: sh
+    command: |
+      nmap -sS -p 1-1024 #{target}

@@ -1,0 +1,41 @@
+[
+  {
+    "technique": "T1003.001",
+    "test_name": "Dump LSASS.exe Memory using comsvcs.dll",
+    "host": "WIN-DC01",
+    "started": "2026-11-12T08:05:00Z",
+    "finished": "2026-11-12T08:05:20Z",
+    "status": "success"
+  },
+  {
+    "technique": "T1110",
+    "test_name": "SSH brute force with hydra",
+    "host": "kali-lab",
+    "started": "2026-11-12T08:11:50Z",
+    "finished": "2026-11-12T08:12:30Z",
+    "status": "success"
+  },
+  {
+    "technique": "T1059.001",
+    "test_name": "PowerShell Encoded Command",
+    "host": "WIN-DC01",
+    "started": "2026-11-12T08:20:00Z",
+    "finished": "2026-11-12T08:20:02Z",
+    "status": "success"
+  },
+  {
+    "technique": "T1046",
+    "test_name": "Port Scan using nmap",
+    "host": "kali-lab",
+    "started": "2026-11-12T08:30:05Z",
+    "finished": "2026-11-12T08:30:40Z",
+    "status": "success"
+  },
+  {
+    "technique": "T1136.001",
+    "test_name": "Create a local user account",
+    "host": "WIN-DC01",
+    "started": "2026-11-12T08:40:00Z",
+    "status": "failed"
+  }
+]

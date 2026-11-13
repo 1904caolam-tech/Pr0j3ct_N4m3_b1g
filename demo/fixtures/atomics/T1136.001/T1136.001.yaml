@@ -1,0 +1,13 @@
+attack_technique: T1136.001
+display_name: Local Account
+atomic_tests:
+- name: Create a local user account
+  auto_generated_guid: 9e8d7c6b-5a49-4382-8170-6f5e4d3c2b85
+  description: Creates a local account, a common persistence step.
+  supported_platforms:
+  - windows
+  executor:
+    name: command_prompt
+    elevation_required: true
+    command: |
+      net user #{username} #{password} /add

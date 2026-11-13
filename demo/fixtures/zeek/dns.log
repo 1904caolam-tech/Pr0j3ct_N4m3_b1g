@@ -1,0 +1,10 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	dns
+#open	2026-11-12-08-16-00
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto	query	qtype	qtype_name	answers
+#types	time	string	addr	port	addr	port	enum	string	count	string	vector[string]
+1794471600.200000	Cdns1a	10.0.4.15	53001	10.0.0.53	53	udp	aGVsbG8tdGhpcy1pcy1hLXR1bm5lbC1wYXlsb2FkLXNlZ21lbnQtMDQ.example-cdn.com	16	TXT	(empty)
+1794471610.400000	Cdns1b	10.0.4.15	53002	10.0.0.53	53	udp	app.acme.io	1	A	203.0.113.20
