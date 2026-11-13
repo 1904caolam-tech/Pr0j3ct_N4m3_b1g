@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -22,6 +23,9 @@ from typing import Any
 from ..domain.models import Finding
 from ..tooling import ToolSpec
 from ..tooling import spec as tool_spec
+
+# Most scanners exit non-zero to mean "I found something", which is not an error.
+ACCEPTABLE_EXIT_CODES = {0, 1, 2}
 
 
 @dataclass
@@ -41,6 +45,23 @@ class ParseResult:
             self.stats[key] = self.stats.get(key, 0) + int(value)
 
 
+@dataclass
+class ScanResult:
+    tool: str
+    ok: bool = False
+    skipped: bool = False
+    exit_code: int | None = None
+    duration_s: float = 0.0
+    command: list[str] = field(default_factory=list)
+    output_path: str = ""
+    error: str = ""
+    parse: ParseResult = field(default_factory=ParseResult)
+
+    @property
+    def findings(self) -> list[Finding]:
+        return self.parse.findings
+
+
 class Adapter(ABC):
     name: str = ""
     spec: ToolSpec
@@ -51,6 +72,12 @@ class Adapter(ABC):
         if self.spec.binary is None:
             return True
         return shutil.which(self.spec.binary) is not None
+
+    def executable(self) -> str:
+        """Resolved binary path, falling back to the bare name for command building."""
+        if not self.spec.binary:
+            return ""
+        return shutil.which(self.spec.binary) or self.spec.binary
 
     def version(self) -> str:
         if not self.spec.binary or not self.spec.version_args:
@@ -74,6 +101,58 @@ class Adapter(ABC):
     @abstractmethod
     def parse(self, path: Path, ctx: dict[str, Any] | None = None) -> ParseResult:
         ...
+
+    # -- scanning ---------------------------------------------------------- #
+
+    def supports_scan(self) -> bool:
+        return self.spec.binary is not None
+
+    def build_command(self, target: str, output_path: Path, opts: dict[str, Any]) -> list[str]:
+        raise NotImplementedError(f"{self.name} does not support scanning")
+
+    def scan(self, target: str, output_path: Path, opts: dict[str, Any] | None = None) -> ScanResult:
+        """Run the tool and parse what it produced.
+
+        Never raises: a broken tool must degrade to ``ScanResult.error`` so the rest
+        of the pipeline keeps working.
+        """
+        opts = opts or {}
+        result = ScanResult(tool=self.name)
+        if not self.available():
+            result.skipped = True
+            result.error = f"binary not found: {self.spec.binary}"
+            return result
+
+        command = self.build_command(target, output_path, opts)
+        result.command = command
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        timeout = int(opts.get("timeout", 1800))
+
+        started = time.monotonic()
+        try:
+            process = subprocess.run(
+                command, capture_output=True, text=True, timeout=timeout, check=False, shell=False
+            )
+            result.exit_code = process.returncode
+            result.ok = process.returncode in ACCEPTABLE_EXIT_CODES
+            if not result.ok:
+                result.error = (process.stderr or process.stdout or "").strip()[:1000]
+        except subprocess.TimeoutExpired:
+            result.error = f"timeout after {timeout}s"
+        except OSError as exc:
+            result.error = f"could not run: {exc}"
+        result.duration_s = round(time.monotonic() - started, 2)
+        result.output_path = str(output_path)
+
+        if output_path.is_file() and output_path.stat().st_size > 0:
+            try:
+                result.parse = self.parse(output_path, {"target": target, **opts})
+            except Exception as exc:  # noqa: BLE001 - a bad parser must not kill the run
+                result.parse.warnings.append(f"parse failed: {exc}")
+                result.ok = False
+        elif not result.error:
+            result.error = "tool produced no output"
+        return result
 
     # -- helpers ----------------------------------------------------------- #
 

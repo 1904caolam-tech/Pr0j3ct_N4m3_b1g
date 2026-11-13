@@ -1,8 +1,11 @@
 """One-command demo.
 
-`p4b demo` runs the whole M1 loop on the bundled fixtures: ingest three telemetry
-sources, load Sigma/YARA/Atomic content, score the test runs, compute coverage,
-group cases and write a report. No binaries, no network, no lab required.
+`p4b demo` runs the whole loop on the bundled fixtures: ingest seven sources, load
+Sigma/YARA/Atomic content, score the test runs, compute coverage, group cases and
+write a report. No binaries, no network, no lab required.
+
+The demo also seeds one asset alias (container image -> repository) because that is
+the only way findings from Trivy and Gitleaks can describe the same artifact.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from . import adapters
+from .canon.assets import asset_for
 from .config import Settings
 from .content import load_sigma, load_yara
 from .report import build_report
@@ -19,10 +23,21 @@ from .store import Repositories, make_engine
 from .store.migrate import upgrade
 from .validate import build_coverage, match_executions, score, summarize
 
-INGEST_PLAN: tuple[tuple[str, str], ...] = (
-    ("wazuh", "fixtures/wazuh/alerts.json"),
-    ("suricata", "fixtures/suricata/eve.json"),
-    ("zeek", "fixtures/zeek"),
+# tool, fixture path, extra parser context
+INGEST_PLAN: tuple[tuple[str, str, dict[str, Any]], ...] = (
+    ("wazuh", "fixtures/wazuh/alerts.json", {}),
+    ("suricata", "fixtures/suricata/eve.json", {}),
+    ("zeek", "fixtures/zeek", {}),
+    ("nuclei", "fixtures/nuclei/results.jsonl", {}),
+    ("trivy", "fixtures/trivy/image.json", {}),
+    ("gitleaks", "fixtures/gitleaks/leaks.json", {"repo": "acme/payments-api"}),
+    ("yara", "fixtures/yara/output.txt", {}),
+)
+
+# The image and the repository are the same product; without this alias they would
+# be two assets and the secrets case would never form.
+ASSET_ALIASES: tuple[tuple[str, str, str, str], ...] = (
+    ("repo", "acme/payments-api", "image", "acme/payments-api:1.8.2"),
 )
 
 
@@ -43,15 +58,23 @@ def run_demo(settings: Settings, reset: bool = False, window_seconds: int = 900)
     if not root.is_dir():
         raise FileNotFoundError(f"demo fixtures not found: {root}")
 
-    steps: dict[str, Any] = {"root": str(root), "ingest": {}, "content": {}}
+    steps: dict[str, Any] = {"root": str(root), "ingest": {}, "content": {}, "aliases": 0}
     engine = make_engine(settings.database_url())
     try:
         steps["schema"] = upgrade(engine, settings.database_url())
         repos = Repositories(engine)
         repos.ensure_tenant()
 
-        for tool, relative in INGEST_PLAN:
-            parsed = adapters.get(tool).parse(root / relative)
+        for target_kind, owner_key, alias_type, alias_value in ASSET_ALIASES:
+            asset_id = repos.get_or_create_asset(asset_for(target_kind, owner_key), source="demo")
+            if repos.add_alias(asset_id, alias_type, alias_value, source="demo"):
+                steps["aliases"] += 1
+
+        for tool, relative, context in INGEST_PLAN:
+            ctx = dict(context)
+            if tool == "yara":
+                ctx["rules"] = str(root / "fixtures" / "yara" / "lab_rules.yar")
+            parsed = adapters.get(tool).parse(root / relative, ctx)
             created = 0
             for finding in parsed.findings:
                 was_created, _, _case = repos.ingest_finding(finding, settings.case_window_hours)

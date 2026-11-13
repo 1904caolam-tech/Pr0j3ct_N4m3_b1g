@@ -1,0 +1,89 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2026-11-12T08:03:00Z",
+  "ArtifactName": "acme/payments-api:1.8.2",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "ImageID": "sha256:6f1c2d3e4f5a",
+    "OS": {"Family": "debian", "Name": "11.6"},
+    "RepoTags": ["acme/payments-api:1.8.2"]
+  },
+  "Results": [
+    {
+      "Target": "node_modules/lodash/package.json",
+      "Class": "lang-pkgs",
+      "Type": "npm",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2021-23337",
+          "PkgName": "lodash",
+          "InstalledVersion": "4.17.20",
+          "FixedVersion": "4.17.21",
+          "Severity": "HIGH",
+          "Title": "Command Injection in lodash",
+          "Description": "lodash before 4.17.21 is vulnerable to command injection via the template function.",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2021-23337",
+          "References": ["https://nvd.nist.gov/vuln/detail/CVE-2021-23337"],
+          "CweIDs": ["CWE-78", "CWE-94"],
+          "CVSS": {"nvd": {"V3Score": 7.2}},
+          "PublishedDate": "2021-02-15T13:15:00Z",
+          "Status": "fixed"
+        },
+        {
+          "VulnerabilityID": "CVE-2020-8203",
+          "PkgName": "lodash",
+          "InstalledVersion": "4.17.20",
+          "FixedVersion": "4.17.21",
+          "Severity": "MEDIUM",
+          "Title": "Prototype Pollution in lodash",
+          "Description": "lodash before 4.17.19 is vulnerable to prototype pollution.",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2020-8203",
+          "References": ["https://nvd.nist.gov/vuln/detail/CVE-2020-8203"],
+          "CweIDs": ["CWE-1321"],
+          "CVSS": {"nvd": {"V3Score": 5.6}},
+          "PublishedDate": "2020-07-15T12:15:00Z",
+          "Status": "fixed"
+        }
+      ]
+    },
+    {
+      "Target": "Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "Misconfigurations": [
+        {
+          "ID": "AVD-DS-0002",
+          "AVDID": "AVD-DS-0002",
+          "Title": "Image runs as root user",
+          "Description": "The container runs as root, so a compromised process keeps full privileges.",
+          "Message": "Specify a non-root USER directive",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Resolution": "Add a USER directive after creating the application user.",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds002",
+          "References": ["https://docs.docker.com/develop/develop-images/dockerfile_best-practices/"],
+          "Status": "FAIL",
+          "CauseMetadata": {"Resource": "Dockerfile", "Provider": "Docker", "StartLine": 1, "EndLine": 24}
+        }
+      ]
+    },
+    {
+      "Target": "app/config/prod.env",
+      "Class": "secret",
+      "Type": "secret",
+      "Secrets": [
+        {
+          "RuleID": "aws-access-key-id",
+          "Category": "AWS",
+          "Severity": "CRITICAL",
+          "Title": "AWS Access Key ID",
+          "StartLine": 4,
+          "EndLine": 4,
+          "Match": "AKIA-EXAMPLE-DO-NOT-USE",
+          "Path": "app/config/prod.env",
+          "Layer": {"DiffID": "sha256:9f8e7d6c5b4a3210"}
+        }
+      ]
+    }
+  ]
+}

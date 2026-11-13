@@ -1,0 +1,38 @@
+[
+  {
+    "Description": "Stripe Access Token",
+    "StartLine": 12,
+    "EndLine": 12,
+    "StartColumn": 15,
+    "EndColumn": 46,
+    "Match": "sk_live_FAKE_NOT_A_KEY",
+    "Secret": "sk_live_FAKE_NOT_A_KEY",
+    "File": "src/payments/stripe.ts",
+    "Commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+    "Entropy": 4.73,
+    "Author": "dev.payments",
+    "Email": "dev@acme.io",
+    "Date": "2026-11-10T09:00:00Z",
+    "Message": "add stripe checkout",
+    "Tags": ["key", "stripe"],
+    "RuleID": "stripe-access-token",
+    "Fingerprint": "a1b2c3:src/payments/stripe.ts:stripe-access-token:12"
+  },
+  {
+    "Description": "Private Key",
+    "StartLine": 1,
+    "EndLine": 27,
+    "Match": "-----BEGIN FAKE KEY-----",
+    "Secret": "FAKE-PRIVATE-KEY-MATERIAL",
+    "File": "deploy/keys/prod_rsa.key",
+    "Commit": "b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0",
+    "Entropy": 5.91,
+    "Author": "ops",
+    "Email": "ops@acme.io",
+    "Date": "2026-11-11T14:20:00Z",
+    "Message": "add deploy key (temporary)",
+    "Tags": ["key", "private"],
+    "RuleID": "private-key",
+    "Fingerprint": "b9c8d7:deploy/keys/prod_rsa.key:private-key:1"
+  }
+]

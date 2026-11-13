@@ -1,4 +1,4 @@
-rule Log4j_Exploit_Attempt
+rule Log4j_Exploit_Attempt : exploit cve
 {
     meta:
         author = "P4B lab"
@@ -13,7 +13,7 @@ rule Log4j_Exploit_Attempt
         any of them
 }
 
-rule CobaltStrike_Beacon
+rule CobaltStrike_Beacon : malware c2
 {
     meta:
         author = "P4B lab"

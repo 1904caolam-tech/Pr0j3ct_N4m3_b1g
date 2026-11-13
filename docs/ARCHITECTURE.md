@@ -477,7 +477,9 @@ cover parsers, coverage math and the case heuristic.
 
 ### M2 — Scanners in the loop (2 days)
 Nuclei/Trivy/Gitleaks/YARA, scan jobs, scope enforcement, raw artifacts, job schedule.
-**AC:** scanning a local directory produces findings; a target outside scope is refused.
+**AC:** scanning a local directory produces findings; a target outside scope is refused
+and nothing is executed; `p4b demo` reaches **17 findings, 4 cases, 8 techniques**
+with the scanner fixtures; every scan leaves a sha256-addressed raw artifact.
 
 ### M3 — Product (2–3 days)
 UI (5 screens), token auth, case UX (timeline, merge/split, assign), ECS export,
@@ -535,10 +537,10 @@ Rules: Sigma covers T1003.001, T1059.001, T1110. Atomic covers T1003.001, T1059.
 T1046, T1110, T1136.001.
 
 Expected: **8 techniques** — validated: T1003.001, T1110; unvalidated: T1059.001;
-no-rule: T1046, T1190, T1071.001, T1071.004; test-only: T1136.001.
-Score = 2/8 = 25%. Validation = 3/5 = 60%. Cases = 2 with telemetry only; the
-secrets case (Trivy image + Gitleaks repo joined by an asset alias) arrives with the
-scanner fixtures in M2.
+detected: T1190, T1071.001; no-rule: T1046, T1071.004; test-only: T1136.001.
+Score = 2/8 = 25%. Validation = 3/5 = 60%. Findings = 17. Cases = 4 (web, artifact,
+host, network); Trivy and Gitleaks describe the same artifact only because an
+image↔repo alias joins them, which is the whole point of the asset registry.
 
 ## 18. Resolved decisions
 

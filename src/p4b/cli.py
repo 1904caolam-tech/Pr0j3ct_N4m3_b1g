@@ -10,6 +10,7 @@ import argparse
 import json
 import platform
 import sys
+import time
 from pathlib import Path
 
 from . import __version__, adapters
@@ -17,6 +18,7 @@ from .config import Settings
 from .content import ConditionError, load_sigma, load_yara, translate
 from .demo import run_demo
 from .report import build_report
+from .scan import Scope, run_scan
 from .store import Repositories, make_engine
 from .store.migrate import upgrade
 from .tooling import LAYERS, detect_all
@@ -62,6 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("tool", choices=adapters.names())
     ingest.add_argument("path", help="file or directory produced by the tool")
     ingest.add_argument("--min-level", type=int, help="Wazuh rule.level threshold (default 7)")
+    ingest.add_argument("--repo", help="repository asset for gitleaks")
+    ingest.add_argument("--rules", help="rule file for yara (enables metadata lookup)")
 
     findings = sub.add_parser("findings", parents=[common], help="list stored findings")
     findings.add_argument("--severity", help="comma separated, e.g. critical,high")
@@ -106,6 +110,17 @@ def build_parser() -> argparse.ArgumentParser:
     serve = sub.add_parser("serve", parents=[common], help="run the read-only HTTP API")
     serve.add_argument("--host", help="bind address (default: api_host)")
     serve.add_argument("--port", type=int, help="port (default: api_port)")
+
+    scan = sub.add_parser("scan", parents=[common], help="run a scanner with scope enforcement")
+    scan.add_argument("--tool", required=True, choices=["nuclei", "trivy", "gitleaks", "yara"])
+    scan.add_argument("--target", action="append", required=True, help="repeatable")
+    scan.add_argument("--allow", action="append", default=[], help="allow rule (host, *.domain, CIDR)")
+    scan.add_argument("--deny", action="append", default=[], help="deny rule (wins over allow)")
+    scan.add_argument("--rules", help="yara rule file")
+    scan.add_argument("--kind", help="trivy target kind: image, fs, config")
+    scan.add_argument("--severity", help="comma separated severity filter")
+    scan.add_argument("--timeout", type=int, help="per-target timeout in seconds")
+    scan.add_argument("--dry-run", action="store_true", help="show decisions without scanning")
     return parser
 
 
@@ -224,7 +239,14 @@ def cmd_doctor(args: argparse.Namespace, settings: Settings) -> int:
 def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
     settings.ensure_dirs()
     adapter = adapters.get(args.tool)
-    ctx = {"min_level": args.min_level} if args.min_level is not None else {}
+    ctx: dict[str, object] = {}
+    if args.min_level is not None:
+        ctx["min_level"] = args.min_level
+    if args.repo:
+        ctx["repo"] = args.repo
+    if args.rules:
+        ctx["rules"] = args.rules
+        ctx["rule_file"] = args.rules
     parsed = adapter.parse(Path(args.path), ctx)
 
     engine = make_engine(settings.database_url())
@@ -644,6 +666,82 @@ def cmd_serve(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def cmd_scan(args: argparse.Namespace, settings: Settings) -> int:
+    adapter = adapters.get(args.tool)
+    scope = Scope(allow=tuple(args.allow), deny=tuple(args.deny))
+
+    opts: dict[str, object] = {}
+    if args.rules:
+        opts["rules"] = args.rules
+        opts["rule_file"] = args.rules
+    if args.kind:
+        opts["kind"] = args.kind
+    if args.timeout:
+        opts["timeout"] = args.timeout
+    if args.severity:
+        opts["severity"] = [item for item in args.severity.split(",") if item]
+
+    settings.ensure_dirs()
+    run_id = "run_" + time.strftime("%Y%m%d-%H%M%S")
+    engine = None
+    repos = None
+    if not args.dry_run:
+        engine = make_engine(settings.database_url())
+        upgrade(engine, settings.database_url())
+        repos = Repositories(engine)
+        repos.ensure_tenant()
+
+    try:
+        outcomes = [
+            run_scan(
+                adapter,
+                target,
+                scope=scope,
+                settings=settings,
+                repos=repos,
+                run_id=run_id,
+                opts=opts,
+                dry_run=args.dry_run,
+            ).to_dict()
+            for target in args.target
+        ]
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+    payload = {"run_id": run_id, "tool": adapter.name, "dry_run": args.dry_run, "outcomes": outcomes}
+
+    def render(data: dict) -> str:
+        rows = []
+        for item in data["outcomes"]:
+            decision = "allowed" if item["allowed"] else "DENIED"
+            rows.append(
+                [
+                    item["target"][:52],
+                    decision,
+                    str(item["findings"]),
+                    str(item["created"]),
+                    f"{item['duration_s']:.1f}s",
+                    item["raw_sha256"][:12],
+                ]
+            )
+        table = _table(rows, ["target", "decision", "findings", "created", "time", "raw"])
+        notes = []
+        for item in data["outcomes"]:
+            if not item["allowed"]:
+                notes.append(f"! {item['target']}: {item['reason']}")
+            elif item["skipped"]:
+                notes.append(f"! {item['target']}: {item['error'] or 'skipped'}")
+            elif item["error"]:
+                notes.append(f"! {item['target']}: {item['error']}")
+        if data["dry_run"]:
+            notes.append("dry-run: nothing was executed or written")
+        return table + ("\n" + "\n".join(notes) if notes else "")
+
+    _print(args, payload, render)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -679,6 +777,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_demo(args, settings)
     if args.command == "serve":
         return cmd_serve(args, settings)
+    if args.command == "scan":
+        return cmd_scan(args, settings)
 
     parser.print_help()
     return 2

@@ -63,6 +63,19 @@ def test_case_priority_follows_worst_severity(repos):
     assert case["title"].startswith("Critical activity on")
 
 
+def test_case_title_updates_when_severity_escalates(repos):
+    repos.ingest_finding(make(title="a", severity=Severity.MEDIUM))
+    repos.ingest_finding(make(title="b", severity=Severity.LOW))
+    case = repos.list_cases()[0]
+    assert case["title"] == "Medium activity on 10.0.4.20"
+
+    repos.ingest_finding(make(title="c", severity=Severity.CRITICAL))
+    case = repos.list_cases()[0]
+    assert case["priority"] == "critical"
+    assert case["title"] == "Critical activity on 10.0.4.20"
+    assert case["findings"] == 3
+
+
 def test_get_case_includes_findings(repos):
     repos.ingest_finding(make(title="a"))
     _, _, case_id = repos.ingest_finding(make(title="b"))

@@ -1,0 +1,2 @@
+Log4j_Exploit_Attempt [author="P4B lab", description="Log4j JNDI exploit string observed in a request"] /lab/samples/access.log
+CobaltStrike_Beacon [author="P4B lab", description="Cobalt Strike beacon marker present in file"] /lab/samples/beacon.bin

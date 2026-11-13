@@ -158,16 +158,75 @@ def test_demo_runs_the_whole_loop(monkeypatch, tmp_path, capsys):
     assert steps["coverage"]["techniques"] == 8
     assert steps["coverage"]["validated"] == 2
     assert steps["coverage"]["score"] == 25.0
-    assert steps["cases"] == 2
-    assert steps["summary"]["total"] == 7
+    assert steps["cases"] == 4
+    assert steps["aliases"] == 1
+    assert steps["summary"]["total"] == 17
     assert Path(steps["report"]).is_file()
 
     # a second run is idempotent for findings and cases
     assert cli.main(["--json", "demo"]) == 0
     second = json.loads(capsys.readouterr().out)
-    assert second["summary"]["total"] == 7
-    assert second["cases"] == 2
+    assert second["summary"]["total"] == 17
+    assert second["cases"] == 4
     assert all(info["created"] == 0 for info in second["ingest"].values())
+
+
+def test_scan_denies_by_default(monkeypatch, tmp_path, capsys):
+    _use_tmp_db(monkeypatch, tmp_path)
+    assert (
+        cli.main(["--json", "scan", "--tool", "nuclei", "--target", "https://evil.example", "--dry-run"])
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    outcome = payload["outcomes"][0]
+    assert outcome["allowed"] is False
+    assert "deny-by-default" in outcome["reason"]
+
+
+def test_scan_allows_an_explicit_scope(monkeypatch, tmp_path, capsys):
+    _use_tmp_db(monkeypatch, tmp_path)
+    assert (
+        cli.main(
+            [
+                "--json",
+                "scan",
+                "--tool",
+                "nuclei",
+                "--target",
+                "https://app.acme.io",
+                "--allow",
+                "app.acme.io",
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
+    outcome = json.loads(capsys.readouterr().out)["outcomes"][0]
+    assert outcome["allowed"] is True
+    assert "allowed by rule" in outcome["reason"]
+
+
+def test_scan_without_binary_reports_skip(monkeypatch, tmp_path, capsys):
+    _use_tmp_db(monkeypatch, tmp_path)
+    assert (
+        cli.main(
+            [
+                "--json",
+                "scan",
+                "--tool",
+                "yara",
+                "--rules",
+                str(FIXTURES / "yara" / "lab_rules.yar"),
+                "--target",
+                str(FIXTURES / "yara"),
+            ]
+        )
+        == 0
+    )
+    outcome = json.loads(capsys.readouterr().out)["outcomes"][0]
+    assert outcome["allowed"] is True  # yara is not a scoped tool
+    assert outcome["skipped"] is True
+    assert "binary not found" in outcome["error"]
 
 
 def test_unknown_command_exits_2():

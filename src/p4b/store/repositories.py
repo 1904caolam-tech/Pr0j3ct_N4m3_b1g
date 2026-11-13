@@ -169,6 +169,39 @@ class Repositories:
                 )
             return asset_id
 
+    def add_alias(
+        self, asset_id: str, alias_type: str, alias_value: str, source: str = "manual"
+    ) -> bool:
+        """Attach an alias to an asset. Returns False if it is already taken.
+
+        Cross-kind aliases (image pushed to a repository, container running on a host)
+        are what make one incident out of findings that arrive from different tools.
+        """
+        now = utcnow()
+        with self.engine.begin() as conn:
+            existing = conn.scalar(
+                sa.select(t.asset_aliases.c.asset_id).where(
+                    t.asset_aliases.c.alias_type == alias_type,
+                    t.asset_aliases.c.alias_value == alias_value,
+                )
+            )
+            if existing:
+                return str(existing) == str(asset_id)
+            conn.execute(
+                sa.insert(t.asset_aliases).values(
+                    id="als_" + hashlib.sha1(
+                        f"{asset_id}|{alias_type}|{alias_value}".encode()
+                    ).hexdigest()[:16],
+                    asset_id=asset_id,
+                    alias_type=alias_type,
+                    alias_value=alias_value,
+                    source=source,
+                    confidence=1.0,
+                    created_at=now,
+                )
+            )
+        return True
+
     # -- findings ---------------------------------------------------------- #
 
     def upsert_finding(self, finding: Finding) -> tuple[bool, str]:
@@ -398,6 +431,50 @@ class Repositories:
             ).mappings()
             return [dict(row) for row in rows]
 
+    # -- raw artifacts ------------------------------------------------------ #
+
+    def save_raw_artifact(
+        self,
+        *,
+        sha256: str,
+        source: str,
+        media_type: str,
+        size: int,
+        storage_ref: str,
+        run_id: str = "",
+    ) -> bool:
+        """Record an immutable raw artifact. Returns False when it was already stored."""
+        with self.engine.begin() as conn:
+            exists = conn.scalar(
+                sa.select(t.raw_artifacts.c.sha256).where(t.raw_artifacts.c.sha256 == sha256)
+            )
+            if exists:
+                return False
+            conn.execute(
+                sa.insert(t.raw_artifacts).values(
+                    sha256=sha256,
+                    tenant_id=self.tenant,
+                    source=source,
+                    media_type=media_type,
+                    size=int(size),
+                    storage_ref=str(storage_ref),
+                    received_at=utcnow(),
+                    run_id=run_id or None,
+                )
+            )
+        return True
+
+    def count_raw_artifacts(self) -> int:
+        with self.engine.connect() as conn:
+            return int(
+                conn.scalar(
+                    sa.select(sa.func.count())
+                    .select_from(t.raw_artifacts)
+                    .where(t.raw_artifacts.c.tenant_id == self.tenant)
+                )
+                or 0
+            )
+
     # -- detection content -------------------------------------------------- #
 
     def sync_rules(self, kind: str, rows: Iterable[dict[str, Any]]) -> int:
@@ -553,15 +630,16 @@ class Repositories:
                             reason="same-asset-window",
                         )
                     )
+                new_priority = higher_priority(
+                    str(existing[1] or "low"), priority_for(top_severity)
+                )
+                values: dict[str, Any] = {"updated_at": now, "priority": new_priority}
+                if new_priority != str(existing[1] or "low"):
+                    # The title encodes the severity, so it has to follow the escalation;
+                    # otherwise a case titled "High activity" sits at critical priority.
+                    values["title"] = case_title(top_severity, str(finding["canonical_key"]))
                 conn.execute(
-                    sa.update(t.cases)
-                    .where(t.cases.c.id == case_id)
-                    .values(
-                        updated_at=now,
-                        priority=higher_priority(
-                            str(existing[1] or "low"), priority_for(top_severity)
-                        ),
-                    )
+                    sa.update(t.cases).where(t.cases.c.id == case_id).values(**values)
                 )
                 return case_id
 
