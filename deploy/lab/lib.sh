@@ -18,9 +18,11 @@ require_ubuntu() {
     # shellcheck disable=SC1091
     . /etc/os-release
     case "${VERSION_ID}" in
-        22.04|24.04) : ;;
-        *) die "unsupported Ubuntu ${VERSION_ID}; this lab targets 22.04 or 24.04" ;;
+        22.04|24.04|26.04) : ;;
+        *) die "unsupported Ubuntu ${VERSION_ID}; this lab targets 22.04, 24.04 or 26.04" ;;
     esac
+    # 26.04 is newer than what the Zeek OBS repo builds for; the sensor script
+    # probes which repository actually exists instead of trusting the version.
     export UBUNTU_VERSION="${VERSION_ID}"
     export UBUNTU_CODENAME="${VERSION_CODENAME:-}"
 }
@@ -37,7 +39,12 @@ install_docker() {
         return
     fi
     log "installing docker engine"
-    curl -fsSL https://get.docker.com | sh
+    # get.docker.com lags new Ubuntu releases, so fall back to the distro package
+    # rather than failing the whole bootstrap.
+    if ! curl -fsSL https://get.docker.com | sh; then
+        warn "get.docker.com failed; installing docker.io from the Ubuntu archive"
+        apt_install docker.io
+    fi
     systemctl enable --now docker
 }
 
