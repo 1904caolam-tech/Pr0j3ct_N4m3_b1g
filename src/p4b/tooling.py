@@ -58,6 +58,23 @@ def spec(name: str) -> ToolSpec:
         raise KeyError(f"unknown tool '{name}' (known: {', '.join(sorted(_BY_NAME))})") from None
 
 
+FALLBACK_PATHS: dict[str, tuple[str, ...]] = {
+    # Zeek's packages install outside PATH (/opt/zeek/bin), and its repository is
+    # the only way to get it on most distributions.
+    "zeek": ("/opt/zeek/bin/zeek", "/usr/local/zeek/bin/zeek"),
+}
+
+
+def resolve_binary(name: str) -> str | None:
+    found = shutil.which(name)
+    if found:
+        return found
+    for candidate in FALLBACK_PATHS.get(name, ()):
+        if Path(candidate).is_file():
+            return candidate
+    return None
+
+
 def detect(spec: ToolSpec, *, path_hint: str | Path | None = None, timeout: int = 6) -> dict:
     """Return availability, resolved path and version for one tool.
 
@@ -78,7 +95,7 @@ def detect(spec: ToolSpec, *, path_hint: str | Path | None = None, timeout: int 
                 row["note"] = f"content path not found: {hint}"
         return row
 
-    path = shutil.which(spec.binary)
+    path = resolve_binary(spec.binary)
     if not path:
         return row
     row["available"] = True

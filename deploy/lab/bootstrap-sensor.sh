@@ -66,6 +66,11 @@ suricata-update --no-test >/dev/null 2>&1 || warn "suricata-update failed; run i
 
 # The packaged zeek service would also capture traffic; two readers on one
 # interface is confusing when debugging, so keep only our manual instance.
+# Zeek installs to /opt/zeek/bin, so link it where every other tool expects it.
+if [[ -x /opt/zeek/bin/zeek ]]; then
+    ln -sf /opt/zeek/bin/zeek /usr/local/bin/zeek
+    ln -sf /opt/zeek/bin/zeekctl /usr/local/bin/zeekctl 2>/dev/null || true
+fi
 if command -v zeek >/dev/null 2>&1; then
     systemctl disable --now zeek >/dev/null 2>&1 || true
 fi

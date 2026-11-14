@@ -260,7 +260,43 @@ duplicate alert only increments `count`.
 Both paths produce identical findings — choose one. Pull is simpler; push is real
 time.
 
-### Verify the lab
+### Notes from the first real run (Ubuntu 26.04)
+
+The lab was built on **Ubuntu 26.04.1 LTS**. Three things differ from 22.04/24.04:
+
+| Difference | What to do |
+|---|---|
+| Suricata 8.0.3 is in the archive | the OISF PPA is not needed; `apt install suricata` works |
+| Zeek 9.0.1 exists in the OBS repo as `xUbuntu_26.04` | installed fine, but lands in `/opt/zeek/bin`; the script symlinks it to `/usr/local/bin/zeek` |
+| The packaged `suricata.service` targets `eth0` | on VMware the NIC is `ens33`; start it manually with `sudo suricata -i ens33 -D` or edit `suricata.yaml` |
+
+Two detection details worth knowing:
+
+- `suricata -r file.pcap -l /tmp/out` (offline) is deterministic and is the fastest
+  way to prove that rules and packets agree. Live capture needs the right interface
+  and a running daemon; both are separate failure modes.
+- The curl rule that fires is `ET HUNTING curl User-Agent to Dotted Quad`
+  (sid 2034567) — it requires the `Host` header to be an IP. A request with
+  `Host: example.com` and the same user agent produces **no** alert, because the
+  older `ET INFO curl User-Agent Outbound` rule is deprecated and commented out in
+  the current ruleset. A custom test rule is the reliable trigger:
+  `alert http any any -> any any (msg:"P4B LAB curl"; content:"curl/"; http_user_agent; sid:9000001;)`
+
+First end-to-end run on real data:
+
+```
+sensor: suricata 8.0.3 (ET Open, 53k rules) + zeek 9.0.1
+  eve.json 4 records, 1 alert (sid 2034567)
+  zeek conn/http/notice logs
+p4b:    ingest suricata -> 1 finding  (asset 93.184.216.34, no ATT&CK: hunting rule)
+        ingest zeek     -> 1 finding
+        verify-lab      -> 6 pass, 0 fail, 1 skip (wazuh not wired yet)
+```
+
+The Suricata finding has no ATT&CK technique — that is honest: a hunting rule has no
+technique mapping in the rule metadata, and P4B does not invent one.
+
+## Verify the lab
 
 ```bash
 sudo install -m 0755 deploy/lab/verify-lab.sh /usr/local/bin/p4b-verify-lab
