@@ -15,7 +15,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 require_root
 require_ubuntu
 
-WAZUH_TAG="${WAZUH_TAG:-4.9.2}"
+WAZUH_TAG="${WAZUH_TAG:-4.14.10}"
 WAZUH_DIR="${WAZUH_DIR:-/data/wazuh}"
 
 apt_install curl ca-certificates

@@ -128,7 +128,7 @@ Phases 1–3 can be executed by hand (commands below) or by the scripts in
 ```bash
 sudo PROJECT_DIR=/home/lab/p4b bash deploy/lab/bootstrap-p4b.sh
 sudo bash deploy/lab/bootstrap-sensor.sh
-sudo WAZUH_TAG=4.9.2 bash deploy/lab/bootstrap-siem.sh
+sudo WAZUH_TAG=4.14.10 bash deploy/lab/bootstrap-siem.sh
 sudo install -m 0755 deploy/lab/pull-logs.sh /usr/local/bin/p4b-pull-logs
 ```
 
@@ -215,7 +215,7 @@ docker run -d --name wazuh-manager --restart unless-stopped \
   -v /data/wazuh/etc:/var/ossec/etc \
   -v /data/wazuh/queue:/var/ossec/queue \
   -e INDEXER_URL= -e FILEBEAT_ENABLED=false \
-  wazuh/wazuh-manager:4.9.2
+  wazuh/wazuh-manager:4.14.10
 ```
 
 Pin the tag you actually deploy and record it in `tool_health`; do not use `latest`.
