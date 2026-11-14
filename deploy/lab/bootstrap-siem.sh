@@ -22,7 +22,10 @@ apt_install curl ca-certificates
 install_docker
 
 log "preparing ${WAZUH_DIR}"
-mkdir -p "${WAZUH_DIR}"/{logs,etc,queue}
+# Only logs are bind-mounted. Bind-mounting an empty directory over /var/ossec/etc
+# hides the image's default ossec.conf and rules (Docker only copies image content
+# into *named volumes*, never into bind mounts), and the manager then fails to start.
+mkdir -p "${WAZUH_DIR}"/{logs,testlogs}
 chmod -R 0750 "${WAZUH_DIR}"
 
 if docker ps -a --format '{{.Names}}' | grep -qx wazuh-manager; then
@@ -34,8 +37,7 @@ log "starting wazuh/wazuh-manager:${WAZUH_TAG}"
 docker run -d --name wazuh-manager --restart unless-stopped \
     -p 1514:1514/tcp -p 1515:1515/tcp -p 55000:55000/tcp \
     -v "${WAZUH_DIR}/logs:/var/ossec/logs" \
-    -v "${WAZUH_DIR}/etc:/var/ossec/etc" \
-    -v "${WAZUH_DIR}/queue:/var/ossec/queue" \
+    -v "${WAZUH_DIR}/testlogs:/var/log/p4b-test" \
     -e INDEXER_URL= \
     -e FILEBEAT_ENABLED=false \
     "wazuh/wazuh-manager:${WAZUH_TAG}" >/dev/null
@@ -51,8 +53,8 @@ done
 docker exec wazuh-manager /var/ossec/bin/wazuh-control status || warn "manager not reporting yet; check: docker logs wazuh-manager"
 
 show_interfaces
-MANAGER_IP="$(hostname -I | tr ' ' '\n' | grep -m1 '^192\.168\.56\.' || true)"
-MANAGER_IP="${MANAGER_IP:-192.168.56.30}"
+MANAGER_IP="$(hostname -I | tr ' ' '\n' | grep -m1 -E '^192\.168\.(56|159)\.' || true)"
+MANAGER_IP="${MANAGER_IP:-$(hostname -I | awk '{print $1}')}"
 
 log "manager is up"
 cat <<EOF
