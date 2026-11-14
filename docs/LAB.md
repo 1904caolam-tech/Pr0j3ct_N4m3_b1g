@@ -249,6 +249,28 @@ p4b ingest wazuh    /data/ingest/wazuh/alerts.json
 `--delete` on the Zeek directory is intentional: `current/` rotates, and stale files
 would be re-read forever.
 
+### Push instead of pull (optional)
+
+Wazuh can ship alerts the moment they fire, through `integratord`. Copy
+`deploy/wazuh/custom-p4b.py` into the manager and add the integration block from
+[deploy/wazuh/README.md](../deploy/wazuh/README.md). The script posts one alert per
+invocation to `POST /api/v1/ingest/wazuh`; the endpoint is idempotent, so a retry or a
+duplicate alert only increments `count`.
+
+Both paths produce identical findings — choose one. Pull is simpler; push is real
+time.
+
+### Verify the lab
+
+```bash
+sudo install -m 0755 deploy/lab/verify-lab.sh /usr/local/bin/p4b-verify-lab
+p4b-verify-lab
+```
+
+It checks: `p4b` installed, database initialised, each ingest source present and
+parsing, findings stored, re-ingest idempotent, and that the asset graph has fewer
+assets than findings. Exit code is non-zero if anything fails.
+
 HTTP push (the M4 alternative for Wazuh `integratord`) is documented in
 `docs/ARCHITECTURE.md` §6.1; it is optional because rsync already works.
 

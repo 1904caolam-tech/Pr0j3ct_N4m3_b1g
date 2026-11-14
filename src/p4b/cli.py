@@ -697,7 +697,9 @@ def cmd_serve(args: argparse.Namespace, settings: Settings) -> int:
     upgrade(engine, settings.database_url())
     repos = Repositories(engine)
     repos.ensure_tenant()
-    app = create_app(repos, require_auth=settings.require_auth)
+    app = create_app(
+        repos, require_auth=settings.require_auth, max_body_mb=settings.max_body_mb
+    )
 
     host = args.host or settings.api_host
     port = int(args.port or settings.api_port)

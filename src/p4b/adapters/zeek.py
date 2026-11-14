@@ -110,13 +110,16 @@ class ZeekAdapter(Adapter):
     # -- mapping ----------------------------------------------------------- #
 
     def _to_finding(self, log_name: str, row: dict[str, Any]) -> Finding | None:
-        if log_name == "notice":
+        # A single uploaded log may have any filename; the `#path` header is the
+        # authority on which log this is.
+        effective = str(row.get("_path") or log_name)
+        if effective == "notice":
             return self._notice(row)
-        if log_name == "weird":
+        if effective == "weird":
             return self._weird(row)
-        if log_name == "intel":
+        if effective == "intel":
             return self._intel(row)
-        if log_name == "dns":
+        if effective == "dns":
             return self._dns_heuristic(row)
         return None
 

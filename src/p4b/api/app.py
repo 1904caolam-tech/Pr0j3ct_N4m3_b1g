@@ -1,21 +1,23 @@
-"""Read-only HTTP API.
+"""HTTP API.
 
-Thin by design: every handler maps a query to a repository call. No business logic
-lives here, so the CLI and the API can never disagree.
+Thin by design: every handler maps a request to a repository or adapter call. No
+business logic lives here, so the CLI and the API can never disagree.
 
-Auth and write endpoints arrive in M3; this is the read surface the UI and a Wazuh
-integration script need.
+Reads are open by default for local use. Writes (triage, ingest) require a bearer
+token once `require_auth` is on; on localhost the anonymous principal has admin so
+the demo needs no setup.
 """
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
-from .. import __version__
+from .. import __version__, adapters
 from ..report import build_report
 from ..sinks import documents as export_documents
 from ..sinks import render_jsonl
@@ -52,7 +54,21 @@ def _split(value: str | None) -> list[str] | None:
     return items or None
 
 
-def create_app(repos: Repositories, *, require_auth: bool = False) -> FastAPI:
+INGEST_TOOLS = {"wazuh", "suricata", "zeek", "nuclei", "trivy", "gitleaks", "yara"}
+INGEST_SUFFIX = {
+    "wazuh": ".json",
+    "suricata": ".json",
+    "zeek": ".log",
+    "nuclei": ".jsonl",
+    "trivy": ".json",
+    "gitleaks": ".json",
+    "yara": ".txt",
+}
+
+
+def create_app(
+    repos: Repositories, *, require_auth: bool = False, max_body_mb: int = 64
+) -> FastAPI:
     app = FastAPI(title="P4B", version=__version__, description=DESCRIPTION)
 
     @app.middleware("http")
@@ -189,6 +205,53 @@ def create_app(repos: Repositories, *, require_auth: bool = False) -> FastAPI:
             media_type="application/x-ndjson",
             headers={"Content-Disposition": f'attachment; filename="p4b-{fmt}.jsonl"'},
         )
+
+    # -- ingest (writes) ---------------------------------------------------- #
+
+    @app.post("/api/v1/ingest/{tool}", tags=["ingest"])
+    async def ingest(
+        tool: str,
+        request: Request,
+        min_level: int = Query(7, ge=0, le=15, description="Wazuh rule.level threshold"),
+    ) -> dict:
+        require_write(request)
+        if tool not in INGEST_TOOLS:
+            raise HTTPException(
+                status_code=404, detail=f"no ingest adapter for '{tool}' (try: {', '.join(sorted(INGEST_TOOLS))})"
+            )
+
+        body = await request.body()
+        limit = max(1, int(max_body_mb)) * 1024 * 1024
+        if not body:
+            raise HTTPException(status_code=400, detail="empty body")
+        if len(body) > limit:
+            raise HTTPException(
+                status_code=413, detail=f"body larger than max_body_mb ({max_body_mb} MB)"
+            )
+
+        adapter = adapters.get(tool)
+        suffix = INGEST_SUFFIX.get(tool, ".json")
+        handle = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        try:
+            handle.write(body)
+            handle.close()
+            parsed = adapter.parse(Path(handle.name), {"min_level": min_level})
+            created = 0
+            for finding in parsed.findings:
+                was_created, _finding_id, _case_id = repos.ingest_finding(finding)
+                created += int(was_created)
+        finally:
+            Path(handle.name).unlink(missing_ok=True)
+
+        return {
+            "tool": tool,
+            "bytes": len(body),
+            "parsed": len(parsed.findings),
+            "created": created,
+            "merged": len(parsed.findings) - created,
+            "stats": parsed.stats,
+            "warnings": parsed.warnings,
+        }
 
     # -- triage (writes) ---------------------------------------------------- #
 

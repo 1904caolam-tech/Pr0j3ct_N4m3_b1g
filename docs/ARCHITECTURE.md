@@ -370,7 +370,7 @@ info 0.5. Exposure: internet 1.25, cloud 1.15, dmz 1.10, internal 1.0, repo 0.90
 | GET | `/api/v1/findings` | filters: severity, source, category, status, attack, q, min_risk, order, limit/offset |
 | GET | `/api/v1/findings/{id}` | detail + raw ref + history |
 | PATCH | `/api/v1/findings/{id}` | status/assignee (writes history) |
-| POST | `/api/v1/ingest/{tool}` | body JSON/JSONL; `?dry_run=1` to validate |
+| POST | `/api/v1/ingest/{tool}` | body JSON/JSONL; `?min_level=` for Wazuh; idempotent |
 | GET | `/api/v1/assets`, `/api/v1/assets/{id}` | registry + aliases |
 | GET | `/api/v1/coverage` | matrix; `?status=unvalidated` |
 | GET | `/api/v1/executions` | executed tests + detection result |
