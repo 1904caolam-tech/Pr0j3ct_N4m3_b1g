@@ -160,6 +160,7 @@ def test_demo_runs_the_whole_loop(monkeypatch, tmp_path, capsys):
     assert steps["coverage"]["score"] == 25.0
     assert steps["cases"] == 4
     assert steps["aliases"] == 1
+    assert steps["tools"] == 2  # sigma + atomic fixtures are present, no binaries
     assert steps["summary"]["total"] == 17
     assert Path(steps["report"]).is_file()
 

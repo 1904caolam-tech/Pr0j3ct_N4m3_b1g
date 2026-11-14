@@ -15,6 +15,12 @@ telemetry + scans → findings → ATT&CK → coverage → tests → fix rules �
 The question it answers: **which ATT&CK techniques am I blind to, and what is the
 evidence?**
 
+![Ingest and normalization](assets/Input_Normalizing.png)
+
+![Detection loop](assets/detection_loop.png)
+
+Editable diagrams live in [docs/FLOWS.md](docs/FLOWS.md).
+
 > Repository name is `Pr0j3ct_N4m3_b1g`; the package, CLI and images are `p4b`
 > (see [ADR-010](docs/ADR.md)).
 

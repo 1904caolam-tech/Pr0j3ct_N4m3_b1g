@@ -73,6 +73,19 @@
   .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px}
   select{background:var(--panel-2);border:1px solid var(--line);color:var(--txt);padding:6px 10px;border-radius:8px;font:inherit}
   .empty{color:var(--muted);padding:20px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+  .toolgrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .pill{border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:11px;color:#475569}
+  .pill.on{color:#86efac;border-color:#14532d;background:#0b3a22}
+  .timeline{list-style:none;margin:8px 0 0;padding:0 0 0 14px;border-left:1px solid var(--line)}
+  .timeline li{position:relative;padding:0 0 16px 16px}
+  .timeline .dot{position:absolute;left:-20px;top:5px;width:9px;height:9px;border-radius:50%;background:#475569;border:2px solid var(--bg)}
+  .timeline .dot.critical{background:#ef4444}
+  .timeline .dot.high{background:#f97316}
+  .timeline .dot.medium{background:#eab308}
+  .timeline .dot.low{background:#38bdf8}
+  .timeline .dot.info,.timeline .dot.unknown{background:#64748b}
+  .tl-body .when{font-size:11px;color:var(--muted)}
+  .tl-body button{margin-top:5px;background:#1b2744;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font:inherit;font-size:12px}
 </style>
 </head>
 <body>
@@ -148,7 +161,11 @@ function showError(err) {
 
 // ---------------------------------------------------------------- overview --
 async function overview() {
-  const [summary, coverage] = await Promise.all([api("/summary"), api("/coverage")]);
+  const [summary, coverage, tools] = await Promise.all([
+    api("/summary"),
+    api("/coverage"),
+    api("/tools").catch(() => []),
+  ]);
   const cov = coverage.summary;
   const cards = [
     ["Findings", summary.total],
@@ -158,6 +175,10 @@ async function overview() {
     ["Blind", cov.blind],
     ["Unvalidated", cov.unvalidated],
   ];
+  const toolStrip = tools.length
+    ? `<div class="card"><div class="k">Tools detected (${tools.filter((t) => t.available).length}/${tools.length})</div>
+        <div class="toolgrid">${tools.map((t) => `<span class="pill ${t.available ? "on" : ""}" title="${esc(t.path || t.note || "")}">${esc(t.name)}</span>`).join("")}</div></div>`
+    : "";
   document.getElementById("view").innerHTML = `
     <div class="cards">${cards.map(([k, v]) => `
       <div class="card"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join("")}
@@ -165,7 +186,8 @@ async function overview() {
     <div class="cards" style="grid-template-columns:1fr 1fr">
       <div class="card"><div class="k">By severity</div>${bars(summary.by_severity || {}, sevOrder)}</div>
       <div class="card"><div class="k">By source</div>${bars(summary.by_source || {}, Object.keys(summary.by_source || {}).sort())}</div>
-    </div>`;
+    </div>
+    ${toolStrip}`;
   document.getElementById("score").innerHTML = `coverage <b>${cov.score}%</b> · ${cov.validated}/${cov.techniques}`;
 }
 
@@ -218,6 +240,7 @@ async function openFinding(id) {
       ${["triaged", "suppressed", "fixed", "false_positive", "open"].map((s) =>
         `<button onclick="setFindingStatus('${esc(id)}','${s}')">${s.replace("_", " ")}</button>`).join("")}
       <button onclick="assignFinding('${esc(id)}')">assign…</button>
+      <button onclick="addFindingToCase('${esc(id)}')">add to case…</button>
     </div>
     ${remediation.summary ? `<p><b>Remediation.</b> ${esc(remediation.summary)}</p>` : ""}
     ${(remediation.steps || []).length ? `<ul>${remediation.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
@@ -304,6 +327,21 @@ async function cases() {
 
 async function openCase(id) {
   const c = await api(`/cases/${id}`);
+  const timeline = c.findings.length
+    ? `<ul class="timeline">${c.findings.map((f) => `
+        <li>
+          <span class="dot ${esc(f.severity)}"></span>
+          <div class="tl-body">
+            <div class="when mono">${esc(f.last_seen)}</div>
+            <div>${sevBadge(f.severity)}
+              <a href="#" onclick="openFinding('${esc(f.id)}');return false;" style="color:var(--txt)">${esc(f.title)}</a>
+            </div>
+            <div class="muted mono">${esc(f.asset.key)} · ${esc(f.source)}</div>
+            <button onclick="detachFromCase('${esc(id)}','${esc(f.id)}')">remove</button>
+          </div>
+        </li>`).join("")}</ul>`
+    : `<p class="muted">no findings attached</p>`;
+
   document.getElementById("drawer").innerHTML = `
     <button class="close" onclick="closeDrawer()">×</button>
     <h3>${esc(c.title)}</h3>
@@ -311,13 +349,11 @@ async function openCase(id) {
     <div class="actions">
       ${["triage", "contained", "closed", "open"].map((s) =>
         `<button onclick="setCaseStatus('${esc(id)}','${s}')">${s}</button>`).join("")}
+      <button onclick="attachToCase('${esc(id)}')">attach finding…</button>
     </div>
     <p class="muted">${esc(c.summary || "")}</p>
-    <h2>Findings (${c.findings.length})</h2>
-    <table><thead><tr><th>sev</th><th>tool</th><th>title</th></tr></thead><tbody>
-      ${c.findings.map((f) => `<tr class="click" onclick="openFinding('${esc(f.id)}')">
-        <td>${sevBadge(f.severity)}</td><td>${esc(f.source)}</td><td>${esc(f.title)}</td></tr>`).join("")}
-    </tbody></table>`;
+    <h2>Timeline (${c.findings.length})</h2>
+    ${timeline}`;
   document.getElementById("drawer").classList.add("open");
 }
 
@@ -326,6 +362,35 @@ async function setCaseStatus(id, status) {
     await api(`/cases/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
     await openCase(id);
     cases();
+  } catch (err) { alert(err.message); }
+}
+
+async function attachToCase(caseId) {
+  const findingId = prompt("finding id (fnd_…)", "");
+  if (!findingId) return;
+  try {
+    await api(`/cases/${caseId}/findings/${findingId}`, { method: "POST" });
+    await openCase(caseId);
+    cases();
+  } catch (err) { alert(err.message); }
+}
+
+async function detachFromCase(caseId, findingId) {
+  if (!confirm("remove this finding from the case?")) return;
+  try {
+    await api(`/cases/${caseId}/findings/${findingId}`, { method: "DELETE" });
+    await openCase(caseId);
+    cases();
+  } catch (err) { alert(err.message); }
+}
+
+async function addFindingToCase(findingId) {
+  const caseId = prompt("case id (case_…)", "");
+  if (!caseId) return;
+  try {
+    await api(`/cases/${caseId}/findings/${findingId}`, { method: "POST" });
+    alert("attached to " + caseId);
+    openCase(caseId);
   } catch (err) { alert(err.message); }
 }
 

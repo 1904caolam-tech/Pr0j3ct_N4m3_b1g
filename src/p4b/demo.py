@@ -21,6 +21,7 @@ from .content import load_sigma, load_yara
 from .report import build_report
 from .store import Repositories, make_engine
 from .store.migrate import upgrade
+from .tooling import detect_all
 from .validate import build_coverage, match_executions, score, summarize
 
 # tool, fixture path, extra parser context
@@ -64,6 +65,18 @@ def run_demo(settings: Settings, reset: bool = False, window_seconds: int = 900)
         steps["schema"] = upgrade(engine, settings.database_url())
         repos = Repositories(engine)
         repos.ensure_tenant()
+
+        # Populate tool health so the UI can show which of the ten tools are present
+        # even when no binary is installed (the content ones point at the fixtures).
+        rows = detect_all(
+            {
+                "sigma": root / "fixtures" / "sigma",
+                "atomic": root / "fixtures" / "atomics",
+                "owasp-cheatsheets": settings.cheatsheet_path,
+            }
+        )
+        repos.save_tool_health(rows)
+        steps["tools"] = sum(1 for row in rows if row["available"])
 
         for target_kind, owner_key, alias_type, alias_value in ASSET_ALIASES:
             asset_id = repos.get_or_create_asset(asset_for(target_kind, owner_key), source="demo")

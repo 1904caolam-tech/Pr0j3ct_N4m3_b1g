@@ -147,6 +147,10 @@ def create_app(repos: Repositories, *, require_auth: bool = False) -> FastAPI:
             rows = [row for row in rows if row.status in wanted]
         return {"summary": summarize(rows), "rows": [row.to_dict() for row in rows]}
 
+    @app.get("/api/v1/tools", tags=["system"])
+    def tools() -> list[dict]:
+        return repos.list_tool_health()
+
     @app.get("/api/v1/executions", tags=["validation"])
     def executions() -> list[dict]:
         return repos.list_executions()

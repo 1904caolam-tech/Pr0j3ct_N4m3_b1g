@@ -152,6 +152,28 @@ def test_rules_and_executions(repos, client):
     assert client.get("/api/v1/executions").json() == []
 
 
+def test_tools_endpoint(repos, client):
+    assert client.get("/api/v1/tools").json() == []
+
+    repos.save_tool_health(
+        [
+            {
+                "name": "wazuh",
+                "layer": "telemetry",
+                "available": True,
+                "version": "4.9.2",
+                "path": "/usr/bin/wazuh-manager",
+                "note": "",
+            }
+        ]
+    )
+    rows = client.get("/api/v1/tools").json()
+    assert len(rows) == 1
+    assert rows[0]["name"] == "wazuh"
+    assert rows[0]["available"] is True
+    assert rows[0]["version"] == "4.9.2"
+
+
 def test_export_endpoint(repos, client):
     add_finding(repos)
 
