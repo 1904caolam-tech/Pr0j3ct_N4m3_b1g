@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P4B — detection engineering workbench</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a2f; --panel-2:#0f1628; --line:#24304d;
+    --txt:#e6ecff; --muted:#8fa0c8; --accent:#4f8cff; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+    --crit:#b91c1c; --high:#ea580c; --med:#ca8a04; --low:#0ea5e9; --info:#64748b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{display:flex;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--panel-2);position:sticky;top:0;z-index:5}
+  .brand{font-weight:800;letter-spacing:.5px;font-size:18px}
+  .brand span{color:var(--accent)}
+  .score{margin-left:auto;color:var(--muted)}
+  .score b{color:var(--txt);font-size:16px}
+  nav{display:flex;gap:4px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel-2);flex-wrap:wrap}
+  nav button{background:none;border:1px solid transparent;color:var(--muted);padding:6px 12px;border-radius:8px;cursor:pointer;font:inherit}
+  nav button:hover{color:var(--txt)}
+  nav button.on{background:#1b2744;border-color:var(--line);color:var(--txt)}
+  main{padding:20px 22px 60px;max-width:1240px;margin:0 auto}
+  h2{font-size:15px;color:var(--muted);font-weight:600;margin:0 0 10px;text-transform:uppercase;letter-spacing:.08em}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .card .v{font-size:24px;font-weight:700;margin-top:4px}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;background:var(--panel-2)}
+  tr:last-child td{border-bottom:none}
+  tr.click{cursor:pointer}
+  tr.click:hover td{background:#16203a}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .badge.critical{background:#3f1212;color:#fca5a5}
+  .badge.high{background:#3d1c08;color:#fdba74}
+  .badge.medium{background:#3a2f06;color:#fde68a}
+  .badge.low{background:#082f49;color:#7dd3fc}
+  .badge.info,.badge.unknown{background:#1e293b;color:#94a3b8}
+  .badge.validated,.badge.detected{background:#0b3a22;color:#86efac}
+  .badge.unvalidated,.badge.test-only{background:#3f1212;color:#fca5a5}
+  .badge.rule-only,.badge.no-rule{background:#3a2f06;color:#fde68a}
+  .badge.gap{background:#1e293b;color:#94a3b8}
+  .badge.open{background:#0b3a22;color:#86efac}
+  .badge.triaged,.badge.triage{background:#0b2c4a;color:#93c5fd}
+  .badge.closed,.badge.fixed{background:#1e293b;color:#94a3b8}
+  .badge.suppressed,.badge.false_positive{background:#2b1b3d;color:#d8b4fe}
+  .yes{color:var(--ok);font-weight:700}
+  .no{color:#475569}
+  .bar{height:8px;background:#1b2744;border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--accent)}
+  .row{display:grid;grid-template-columns:120px 1fr 44px;gap:10px;align-items:center;margin:6px 0}
+  .muted{color:var(--muted)}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(560px,92vw);background:var(--panel);border-left:1px solid var(--line);
+          transform:translateX(100%);transition:transform .18s ease;overflow:auto;padding:18px 20px;z-index:20}
+  .drawer.open{transform:none}
+  .drawer h3{margin:0 0 4px;font-size:18px}
+  .drawer .close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer}
+  .kv{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:12px 0;font-size:13px}
+  .kv .k{color:var(--muted)}
+  pre{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;max-height:240px;font-size:12px}
+  .actions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+  .actions button{background:#1b2744;border:1px solid var(--line);color:var(--txt);padding:5px 10px;border-radius:8px;cursor:pointer;font:inherit}
+  .actions button:hover{border-color:var(--accent)}
+  .tokenbar{position:fixed;left:0;right:0;bottom:0;background:#1b1230;border-top:1px solid #4c1d95;padding:10px 18px;display:none;gap:10px;align-items:center;z-index:30}
+  .tokenbar.on{display:flex}
+  .tokenbar input{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);padding:7px 10px;border-radius:8px;font:inherit}
+  .tokenbar button{background:var(--accent);border:none;color:#fff;padding:7px 14px;border-radius:8px;cursor:pointer;font:inherit}
+  .err{color:#fca5a5}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+  select{background:var(--panel-2);border:1px solid var(--line);color:var(--txt);padding:6px 10px;border-radius:8px;font:inherit}
+  .empty{color:var(--muted);padding:20px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">P4B<span>.</span></div>
+  <div class="muted mono" id="clock"></div>
+  <div class="score" id="score">coverage <b>–</b></div>
+</header>
+<nav id="tabs">
+  <button data-tab="overview" class="on">Overview</button>
+  <button data-tab="findings">Findings</button>
+  <button data-tab="coverage">Coverage</button>
+  <button data-tab="purple">Purple team</button>
+  <button data-tab="cases">Cases</button>
+  <button data-tab="token" style="margin-left:auto">API token</button>
+</nav>
+<main id="view"></main>
+<aside class="drawer" id="drawer"></aside>
+<div class="tokenbar" id="tokenbar">
+  <span class="muted">API token (write access):</span>
+  <input id="tokeninput" placeholder="p4b_..." autocomplete="off">
+  <button onclick="saveToken()">Save</button>
+  <button onclick="clearToken()" style="background:#334155">Clear</button>
+</div>
+
+<script>
+const API = "/api/v1";
+const state = { tab: "overview", severity: "" };
+
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+));
+
+function token() { return localStorage.getItem("p4b_token") || ""; }
+function saveToken() {
+  localStorage.setItem("p4b_token", document.getElementById("tokeninput").value.trim());
+  document.getElementById("tokenbar").classList.remove("on");
+  setTab(state.tab);
+}
+function clearToken() {
+  localStorage.removeItem("p4b_token");
+  document.getElementById("tokenbar").classList.remove("on");
+}
+
+async function api(path, options = {}) {
+  const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
+  if (token()) headers.Authorization = "Bearer " + token();
+  const res = await fetch(API + path, Object.assign({}, options, { headers }));
+  if (res.status === 401) {
+    document.getElementById("tokenbar").classList.add("on");
+    throw new Error("unauthorized — paste a token (p4b token create --name ui)");
+  }
+  if (!res.ok) throw new Error((await res.text()) || res.statusText);
+  return res.json();
+}
+
+const sevOrder = ["critical", "high", "medium", "low", "info", "unknown"];
+const sevBadge = (s) => `<span class="badge ${sevOrder.includes(s) ? s : "unknown"}">${esc(s)}</span>`;
+
+function bars(map, order) {
+  const max = Math.max(1, ...order.map((k) => map[k] || 0));
+  return order.map((k) => {
+    const v = map[k] || 0;
+    return `<div class="row"><span class="muted">${esc(k)}</span>
+      <span class="bar"><i style="width:${Math.round((v / max) * 100)}%"></i></span>
+      <span class="mono">${v}</span></div>`;
+  }).join("");
+}
+
+function showError(err) {
+  document.getElementById("view").innerHTML = `<p class="err">${esc(err.message || err)}</p>`;
+}
+
+// ---------------------------------------------------------------- overview --
+async function overview() {
+  const [summary, coverage] = await Promise.all([api("/summary"), api("/coverage")]);
+  const cov = coverage.summary;
+  const cards = [
+    ["Findings", summary.total],
+    ["Open", summary.open],
+    ["Max risk", summary.max_risk],
+    ["Validated", `${cov.validated}/${cov.techniques} (${cov.score}%)`],
+    ["Blind", cov.blind],
+    ["Unvalidated", cov.unvalidated],
+  ];
+  document.getElementById("view").innerHTML = `
+    <div class="cards">${cards.map(([k, v]) => `
+      <div class="card"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join("")}
+    </div>
+    <div class="cards" style="grid-template-columns:1fr 1fr">
+      <div class="card"><div class="k">By severity</div>${bars(summary.by_severity || {}, sevOrder)}</div>
+      <div class="card"><div class="k">By source</div>${bars(summary.by_source || {}, Object.keys(summary.by_source || {}).sort())}</div>
+    </div>`;
+  document.getElementById("score").innerHTML = `coverage <b>${cov.score}%</b> · ${cov.validated}/${cov.techniques}`;
+}
+
+// ---------------------------------------------------------------- findings --
+async function findings() {
+  const query = `?limit=300${state.severity ? "&severity=" + state.severity : ""}`;
+  const rows = await api("/findings" + query);
+  const opts = [""].concat(sevOrder).map((s) =>
+    `<option value="${s}" ${state.severity === s ? "selected" : ""}>${s || "all severities"}</option>`).join("");
+  if (!rows.length) {
+    document.getElementById("view").innerHTML = `<div class="empty">no findings yet — run <code>p4b demo</code></div>`;
+    return;
+  }
+  document.getElementById("view").innerHTML = `
+    <div class="toolbar"><select onchange="state.severity=this.value;findings()">${opts}</select>
+      <span class="muted">${rows.length} row(s)</span></div>
+    <table><thead><tr><th>sev</th><th>risk</th><th>tool</th><th>title</th><th>asset</th><th>ATT&CK</th><th>status</th></tr></thead>
+    <tbody>${rows.map((f) => `
+      <tr class="click" onclick="openFinding('${esc(f.id)}')">
+        <td>${sevBadge(f.severity)}</td>
+        <td class="mono">${Number(f.risk).toFixed(1)}</td>
+        <td>${esc(f.source)}</td>
+        <td>${esc(f.title).slice(0, 70)}</td>
+        <td class="mono">${esc(f.asset.key)}</td>
+        <td class="mono">${esc((f.attack || []).join(","))}</td>
+        <td><span class="badge ${esc(f.status)}">${esc(f.status)}</span></td>
+      </tr>`).join("")}</tbody></table>`;
+}
+
+async function openFinding(id) {
+  const [f, history] = await Promise.all([
+    api(`/findings/${id}`),
+    api(`/findings/${id}/history`).catch(() => []),
+  ]);
+  const remediation = f.remediation || {};
+  document.getElementById("drawer").innerHTML = `
+    <button class="close" onclick="closeDrawer()">×</button>
+    <h3>${esc(f.title)}</h3>
+    <div>${sevBadge(f.severity)} <span class="muted mono">risk ${Number(f.risk).toFixed(2)}</span></div>
+    <div class="kv">
+      <span class="k">source</span><span>${esc(f.source)} · ${esc(f.category)}</span>
+      <span class="k">asset</span><span class="mono">${esc(f.asset.kind)}:${esc(f.asset.key)}</span>
+      <span class="k">rule</span><span class="mono">${esc(f.rule_id || "-")}</span>
+      <span class="k">ATT&CK</span><span class="mono">${esc((f.attack || []).join(", ") || "-")}</span>
+      <span class="k">CWE / CVE</span><span class="mono">${esc([...(f.cwe || []), ...(f.cve || [])].join(", ") || "-")}</span>
+      <span class="k">seen</span><span class="mono">${esc(f.first_seen)} → ${esc(f.last_seen)} (×${esc(f.count)})</span>
+      <span class="k">status</span><span><span class="badge ${esc(f.status)}">${esc(f.status)}</span> ${esc(f.assignee || "")}</span>
+    </div>
+    <div class="actions">
+      ${["triaged", "suppressed", "fixed", "false_positive", "open"].map((s) =>
+        `<button onclick="setFindingStatus('${esc(id)}','${s}')">${s.replace("_", " ")}</button>`).join("")}
+      <button onclick="assignFinding('${esc(id)}')">assign…</button>
+    </div>
+    ${remediation.summary ? `<p><b>Remediation.</b> ${esc(remediation.summary)}</p>` : ""}
+    ${(remediation.steps || []).length ? `<ul>${remediation.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
+    ${remediation.cheat_sheet_url ? `<p><a href="${esc(remediation.cheat_sheet_url)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(remediation.cheat_sheet)}</a></p>` : ""}
+    <h2 style="margin-top:18px">Evidence</h2>
+    <pre>${esc(JSON.stringify(f.evidence || {}, null, 2))}</pre>
+    <h2 style="margin-top:18px">History</h2>
+    ${history.length ? `<table><thead><tr><th>when</th><th>actor</th><th>field</th><th>change</th></tr></thead><tbody>
+      ${history.map((h) => `<tr><td class="mono">${esc(h.changed_at)}</td><td>${esc(h.actor)}</td>
+        <td>${esc(h.field)}</td><td class="mono">${esc(h.old_value)} → ${esc(h.new_value)}</td></tr>`).join("")}
+      </tbody></table>` : `<p class="muted">no changes yet</p>`}`;
+  document.getElementById("drawer").classList.add("open");
+}
+
+async function setFindingStatus(id, status) {
+  try {
+    await api(`/findings/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    await openFinding(id);
+    findings();
+  } catch (err) { alert(err.message); }
+}
+
+async function assignFinding(id) {
+  const who = prompt("assignee", "analyst");
+  if (who === null) return;
+  try {
+    await api(`/findings/${id}`, { method: "PATCH", body: JSON.stringify({ assignee: who }) });
+    await openFinding(id);
+  } catch (err) { alert(err.message); }
+}
+
+function closeDrawer() { document.getElementById("drawer").classList.remove("open"); }
+
+// ---------------------------------------------------------------- coverage --
+async function coverage() {
+  const data = await api("/coverage");
+  document.getElementById("view").innerHTML = `
+    <p class="muted">coverage score = validated / techniques. “Seen” means a detection was actually observed.</p>
+    <table><thead><tr><th>technique</th><th>rule</th><th>test</th><th>seen</th><th>status</th><th>sources</th></tr></thead>
+    <tbody>${data.rows.map((r) => `
+      <tr><td class="mono">${esc(r.technique)}</td>
+        <td class="${r.has_rule ? "yes" : "no"}">${r.has_rule ? "●" : "○"}</td>
+        <td class="${r.has_test ? "yes" : "no"}">${r.has_test ? "●" : "○"}</td>
+        <td class="${r.observed ? "yes" : "no"}">${r.observed ? "●" : "○"}</td>
+        <td><span class="badge ${esc(r.status)}">${esc(r.status)}</span></td>
+        <td class="muted">${esc((r.sources || []).join(", "))}</td></tr>`).join("")}
+    </tbody></table>`;
+}
+
+// ------------------------------------------------------------------ purple --
+async function purple() {
+  const rows = await api("/executions");
+  if (!rows.length) {
+    document.getElementById("view").innerHTML = `<div class="empty">no test runs — <code>p4b validate --results demo/fixtures/atomic-results.json</code></div>`;
+    return;
+  }
+  const detected = rows.filter((r) => r.detected).length;
+  document.getElementById("view").innerHTML = `
+    <p class="muted">${detected}/${rows.length} executed tests were detected inside the correlation window.</p>
+    <table><thead><tr><th>technique</th><th>test</th><th>host</th><th>result</th><th>sources</th><th>started</th></tr></thead>
+    <tbody>${rows.map((r) => `
+      <tr><td class="mono">${esc(r.technique)}</td><td>${esc(r.test_name)}</td><td class="mono">${esc(r.host || "-")}</td>
+        <td><span class="badge ${r.detected ? "validated" : "unvalidated"}">${r.detected ? "detected" : "missed"}</span></td>
+        <td class="muted">${esc((r.sources || []).join(", "))}</td><td class="mono">${esc(r.started || "")}</td></tr>`).join("")}
+    </tbody></table>`;
+}
+
+// ------------------------------------------------------------------- cases --
+async function cases() {
+  const rows = await api("/cases");
+  if (!rows.length) {
+    document.getElementById("view").innerHTML = `<div class="empty">no cases yet</div>`;
+    return;
+  }
+  document.getElementById("view").innerHTML = `
+    <table><thead><tr><th>case</th><th>priority</th><th>findings</th><th>status</th><th>risk</th><th>assignee</th></tr></thead>
+    <tbody>${rows.map((c) => `
+      <tr class="click" onclick="openCase('${esc(c.id)}')">
+        <td>${esc(c.title)}</td><td>${sevBadge(c.priority)}</td><td class="mono">${esc(c.findings)}</td>
+        <td><span class="badge ${esc(c.status)}">${esc(c.status)}</span></td>
+        <td class="mono">${Number(c.max_risk).toFixed(1)}</td><td class="muted">${esc(c.assignee || "-")}</td></tr>`).join("")}
+    </tbody></table>`;
+}
+
+async function openCase(id) {
+  const c = await api(`/cases/${id}`);
+  document.getElementById("drawer").innerHTML = `
+    <button class="close" onclick="closeDrawer()">×</button>
+    <h3>${esc(c.title)}</h3>
+    <div>${sevBadge(c.priority)} <span class="badge ${esc(c.status)}">${esc(c.status)}</span></div>
+    <div class="actions">
+      ${["triage", "contained", "closed", "open"].map((s) =>
+        `<button onclick="setCaseStatus('${esc(id)}','${s}')">${s}</button>`).join("")}
+    </div>
+    <p class="muted">${esc(c.summary || "")}</p>
+    <h2>Findings (${c.findings.length})</h2>
+    <table><thead><tr><th>sev</th><th>tool</th><th>title</th></tr></thead><tbody>
+      ${c.findings.map((f) => `<tr class="click" onclick="openFinding('${esc(f.id)}')">
+        <td>${sevBadge(f.severity)}</td><td>${esc(f.source)}</td><td>${esc(f.title)}</td></tr>`).join("")}
+    </tbody></table>`;
+  document.getElementById("drawer").classList.add("open");
+}
+
+async function setCaseStatus(id, status) {
+  try {
+    await api(`/cases/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    await openCase(id);
+    cases();
+  } catch (err) { alert(err.message); }
+}
+
+// ------------------------------------------------------------------- shell --
+function renderTokenPanel() {
+  document.getElementById("view").innerHTML = `
+    <div class="card" style="max-width:620px">
+      <div class="k">API token</div>
+      <p class="muted">Writes need a bearer token. Create one with
+        <code>p4b token create --name ui --scopes read,write</code> and paste it in the bar below.
+        Reads are open while <code>require_auth</code> is false.</p>
+      <p class="mono">${token() ? "stored token: " + esc(token().slice(0, 12)) + "…" : "no token stored"}</p>
+      <div class="actions">
+        <button onclick="document.getElementById('tokenbar').classList.add('on')">set token</button>
+        <button onclick="clearToken()">clear</button>
+      </div>
+    </div>`;
+}
+
+const views = { overview, findings, coverage, purple, cases, token: renderTokenPanel };
+
+function setTab(name) {
+  state.tab = name;
+  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+  try { views[name](); } catch (err) { showError(err); }
+}
+
+document.getElementById("tabs").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-tab]");
+  if (button) setTab(button.dataset.tab);
+});
+
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeDrawer(); });
+document.getElementById("clock").textContent = new Date().toISOString().slice(0, 16).replace("T", " ");
+setTab("overview");
+</script>
+</body>
+</html>

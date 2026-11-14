@@ -381,6 +381,7 @@ info 0.5. Exposure: internet 1.25, cloud 1.15, dmz 1.10, internal 1.0, repo 0.90
 | POST | `/api/v1/content/sync` | sync from configured path |
 | POST | `/api/v1/jobs/{id}/run` | run a job now |
 | GET | `/api/v1/report.md` | markdown report |
+| GET | `/api/v1/export?format=ecs\|ocsf` | NDJSON projection for another SIEM |
 | GET | `/` | UI |
 
 Rule: **everything the UI shows is reachable through the API.** The UI holds no logic.
@@ -413,7 +414,7 @@ compose profiles:
 | Topology | Used for | Components |
 |---|---|---|
 | dev | editing code | `p4b serve --reload` + SQLite file, no Docker |
-| demo | portfolio | `docker compose up` → http://localhost:8080 |
+| demo | portfolio | `docker compose -f deploy/docker-compose.yml up` → http://localhost:8080 |
 | lab | real traffic | add `scanners` + `lab`, sensors write to a shared volume |
 | prod-ish | practising ops | Postgres, TLS reverse proxy, api tokens, backups |
 
@@ -482,9 +483,10 @@ and nothing is executed; `p4b demo` reaches **17 findings, 4 cases, 8 techniques
 with the scanner fixtures; every scan leaves a sha256-addressed raw artifact.
 
 ### M3 — Product (2–3 days)
-UI (5 screens), token auth, case UX (timeline, merge/split, assign), ECS export,
-`docker compose up`.
-**AC:** browser shows coverage + findings + case timeline; triage writes history.
+UI (5 screens), token auth, case UX (timeline, merge/split, assign), ECS/OCSF export
+(`p4b export`, `GET /api/v1/export`), `docker compose up`.
+**AC:** browser shows coverage + findings + case timeline; triage writes history;
+`p4b export --format ocsf` produces one valid OCSF Detection Finding per line.
 
 ### M4 — Real lab (2 days, later)
 Compose profile with real Zeek/Suricata + Wazuh integration script; 24h soak.

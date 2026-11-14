@@ -229,6 +229,42 @@ def test_scan_without_binary_reports_skip(monkeypatch, tmp_path, capsys):
     assert "binary not found" in outcome["error"]
 
 
+def test_token_lifecycle(monkeypatch, tmp_path, capsys):
+    _use_tmp_db(monkeypatch, tmp_path)
+
+    assert cli.main(["--json", "token", "create", "--name", "ui", "--scopes", "read,write"]) == 0
+    created = json.loads(capsys.readouterr().out)
+    assert created["token"].startswith("p4b_")
+    assert created["scopes"] == ["read", "write"]
+
+    assert cli.main(["--json", "token", "list"]) == 0
+    rows = json.loads(capsys.readouterr().out)
+    assert len(rows) == 1
+    assert "token" not in rows[0]  # only the hash is stored
+
+    assert cli.main(["token", "revoke", created["id"]]) == 0
+    capsys.readouterr()
+    assert cli.main(["--json", "token", "list"]) == 0
+    assert json.loads(capsys.readouterr().out)[0]["revoked_at"] is not None
+
+
+def test_export_writes_jsonl(monkeypatch, tmp_path, capsys):
+    _use_tmp_db(monkeypatch, tmp_path)
+    cli.main(["init"])
+    cli.main(["ingest", "wazuh", str(FIXTURES / "wazuh" / "alerts.json")])
+    capsys.readouterr()
+
+    target = tmp_path / "exports" / "ocsf.jsonl"
+    assert cli.main(["--json", "export", "--format", "ocsf", "--out", str(target)]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["findings"] == 2
+    assert target.is_file()
+
+    lines = [json.loads(line) for line in target.read_text(encoding="utf-8").splitlines()]
+    assert len(lines) == 2
+    assert {line["class_uid"] for line in lines} == {2004}
+
+
 def test_unknown_command_exits_2():
     try:
         cli.main([])

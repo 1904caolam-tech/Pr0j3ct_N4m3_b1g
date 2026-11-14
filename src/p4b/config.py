@@ -23,6 +23,7 @@ class Settings:
     db_url: str = ""
     api_host: str = "127.0.0.1"
     api_port: int = 8080
+    require_auth: bool = False
     case_window_hours: int = 24
     min_wazuh_level: int = 7
     scan_timeout: int = 1800
@@ -78,6 +79,7 @@ class Settings:
             "database_url": self.database_url(),
             "api_host": self.api_host,
             "api_port": self.api_port,
+            "require_auth": self.require_auth,
             "case_window_hours": self.case_window_hours,
             "min_wazuh_level": self.min_wazuh_level,
             "scan_timeout": self.scan_timeout,
@@ -117,4 +119,9 @@ def _env_overrides() -> dict[str, Any]:
         value = os.environ.get(f"{ENV_PREFIX}{env_name}")
         if value:
             out[attr] = value
+
+    truthy = {"1", "true", "yes", "on"}
+    auth = os.environ.get(f"{ENV_PREFIX}REQUIRE_AUTH")
+    if auth is not None:
+        out["require_auth"] = auth.strip().lower() in truthy
     return out

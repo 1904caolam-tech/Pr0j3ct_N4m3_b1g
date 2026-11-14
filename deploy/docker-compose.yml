@@ -1,0 +1,37 @@
+name: p4b
+
+services:
+  p4b:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: app
+    image: p4b:latest
+    container_name: p4b
+    ports:
+      - "8080:8080"
+    environment:
+      P4B_DATA_DIR: /data
+      P4B_DB_URL: sqlite:////data/p4b.db
+      P4B_REQUIRE_AUTH: "false"
+    volumes:
+      - p4b-data:/data
+    restart: unless-stopped
+
+  # One-shot scanner image. Not started by `up` (profile), run it explicitly:
+  #   docker compose run --rm scanners scan --tool trivy --target /data
+  scanners:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: scanner
+    image: p4b-scanner:latest
+    profiles: ["scanners"]
+    environment:
+      P4B_DATA_DIR: /data
+      P4B_DB_URL: sqlite:////data/p4b.db
+    volumes:
+      - p4b-data:/data
+
+volumes:
+  p4b-data:

@@ -24,9 +24,9 @@ evidence?**
 |---|---|---|
 | **M0** | foundation: config, schema, migrations, CLI, tests | **done** |
 | **M1** | closed loop: Wazuh + Suricata + Zeek + Sigma + Atomic → coverage | **done** |
-| M2 | scanners in the loop: Nuclei / Trivy / Gitleaks / YARA | next |
-| M3 | product: UI, auth, cases, export, compose | planned |
-| M4 | real lab: live sensors, soak test | planned |
+| **M2** | scanners in the loop: Nuclei / Trivy / Gitleaks / YARA | **done** |
+| **M3** | product: UI, auth, cases, export, containers | **done** |
+| M4 | real lab: live sensors, soak test | next |
 
 The design is approved and lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
 decisions and their trade-offs are in [docs/ADR.md](docs/ADR.md).
@@ -38,14 +38,32 @@ python -m pip install -e ".[dev]"
 p4b init          # data dir, schema (Alembic), default tenant
 p4b doctor        # detect the ten tools, record versions
 p4b demo          # full loop on bundled fixtures -> data/reports/report.md
-p4b serve         # read-only API + OpenAPI docs at /docs
+p4b serve         # UI at / and read-only API + OpenAPI docs at /docs
+p4b export --format ocsf   # NDJSON for another SIEM (ecs or ocsf)
 p4b config        # show effective settings
 pytest -q
 ```
 
 `p4b doctor` reports which binaries are present. Missing tools are expected on a
-laptop — install them, or use the `p4b-scanner` image described in the
-architecture doc.
+laptop — install them, or use the `p4b-scanner` image described below.
+
+## Run it in Docker
+
+```bash
+docker compose -f deploy/docker-compose.yml up --build
+# UI + API at http://localhost:8080   (OpenAPI docs at /docs)
+
+# demo inside the container (the data volume survives restarts)
+docker compose -f deploy/docker-compose.yml run --rm p4b demo --reset
+
+# one-shot scanner: nuclei/trivy/gitleaks/yara are baked into this image
+docker compose -f deploy/docker-compose.yml run --rm scanners scan \
+  --tool yara --rules /data/rules/lab.yar --target /data
+```
+
+Two build targets share one Dockerfile: `app` (API + UI, no offensive tooling) and
+`scanner` (adds the four binaries, pinned by version). Compose keeps `scanners`
+behind a profile so `up` never starts it.
 
 ## What is integrated
 

@@ -14,11 +14,14 @@ import time
 from pathlib import Path
 
 from . import __version__, adapters
+from .api.auth import hash_token, new_token, parse_scopes
 from .config import Settings
 from .content import ConditionError, load_sigma, load_yara, translate
 from .demo import run_demo
 from .report import build_report
 from .scan import Scope, run_scan
+from .sinks import documents as export_documents
+from .sinks import write_jsonl
 from .store import Repositories, make_engine
 from .store.migrate import upgrade
 from .tooling import LAYERS, detect_all
@@ -121,6 +124,20 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--severity", help="comma separated severity filter")
     scan.add_argument("--timeout", type=int, help="per-target timeout in seconds")
     scan.add_argument("--dry-run", action="store_true", help="show decisions without scanning")
+
+    token = sub.add_parser("token", parents=[common], help="manage API bearer tokens")
+    token_sub = token.add_subparsers(dest="token_command", required=True)
+    token_create = token_sub.add_parser("create", parents=[common], help="issue a token (shown once)")
+    token_create.add_argument("--name", required=True)
+    token_create.add_argument("--scopes", default="read,write", help="read, write or admin")
+    token_sub.add_parser("list", parents=[common], help="list issued tokens")
+    token_revoke = token_sub.add_parser("revoke", parents=[common], help="revoke a token")
+    token_revoke.add_argument("id")
+
+    export = sub.add_parser("export", parents=[common], help="export findings as ECS or OCSF JSONL")
+    export.add_argument("--format", choices=["ecs", "ocsf"], default="ecs")
+    export.add_argument("--out", help="output path (default: data/exports/<format>.jsonl)")
+    export.add_argument("--limit", type=int, default=100_000)
     return parser
 
 
@@ -654,7 +671,7 @@ def cmd_serve(args: argparse.Namespace, settings: Settings) -> int:
     upgrade(engine, settings.database_url())
     repos = Repositories(engine)
     repos.ensure_tenant()
-    app = create_app(repos)
+    app = create_app(repos, require_auth=settings.require_auth)
 
     host = args.host or settings.api_host
     port = int(args.port or settings.api_port)
@@ -742,6 +759,90 @@ def cmd_scan(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def cmd_token(args: argparse.Namespace, settings: Settings) -> int:
+    engine = make_engine(settings.database_url())
+    try:
+        upgrade(engine, settings.database_url())
+        repos = Repositories(engine)
+        repos.ensure_tenant()
+
+        if args.token_command == "create":
+            try:
+                scopes = parse_scopes(args.scopes)
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            token = new_token()
+            token_id = repos.create_token(args.name, hash_token(token), scopes)
+            payload = {"id": token_id, "name": args.name, "scopes": list(scopes), "token": token}
+
+            def render(data: dict) -> str:
+                return "\n".join(
+                    [
+                        f"id      {data['id']}",
+                        f"name    {data['name']}",
+                        f"scopes  {', '.join(data['scopes'])}",
+                        "",
+                        f"token   {data['token']}",
+                        "",
+                        "store it now: only the hash is kept, this token cannot be recovered.",
+                    ]
+                )
+
+            _print(args, payload, render)
+            return 0
+
+        if args.token_command == "list":
+            rows = repos.list_tokens()
+
+            def render(items: list[dict]) -> str:
+                if not items:
+                    return "no tokens (create one with `p4b token create --name ui`)"
+                table = _table(
+                    [
+                        [
+                            item["id"],
+                            item["name"],
+                            ",".join(item["scopes"]),
+                            str(item.get("created_at") or "")[:19],
+                            str(item.get("last_used_at") or "-")[:19],
+                            "revoked" if item.get("revoked_at") else "active",
+                        ]
+                        for item in items
+                    ],
+                    ["id", "name", "scopes", "created", "last used", "state"],
+                )
+                return f"{table}\n\n{len(items)} token(s)"
+
+            _print(args, rows, render)
+            return 0
+
+        revoked = repos.revoke_token(args.id)
+        print(f"{'revoked' if revoked else 'not found'}: {args.id}")
+        return 0 if revoked else 1
+    finally:
+        engine.dispose()
+
+
+def cmd_export(args: argparse.Namespace, settings: Settings) -> int:
+    engine = make_engine(settings.database_url())
+    try:
+        rows = Repositories(engine).list_findings(limit=args.limit)
+    finally:
+        engine.dispose()
+
+    path = Path(args.out) if args.out else Path(settings.data_dir) / "exports" / f"{args.format}.jsonl"
+    count = write_jsonl(path, export_documents(rows, args.format))
+    payload = {"format": args.format, "path": str(path), "findings": count}
+
+    _print(
+        args,
+        payload,
+        lambda data: f"exported {data['findings']} finding(s) as {data['format']}\n  {data['path']}",
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -779,6 +880,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_serve(args, settings)
     if args.command == "scan":
         return cmd_scan(args, settings)
+    if args.command == "token":
+        return cmd_token(args, settings)
+    if args.command == "export":
+        return cmd_export(args, settings)
 
     parser.print_help()
     return 2

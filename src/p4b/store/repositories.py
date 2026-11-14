@@ -14,7 +14,7 @@ from typing import Any
 
 import sqlalchemy as sa
 
-from ..domain.models import Asset, Finding, utcnow
+from ..domain.models import Asset, Finding, to_iso, utcnow
 from ..domain.severity import Severity
 from . import tables as t
 
@@ -475,6 +475,210 @@ class Repositories:
                 or 0
             )
 
+    # -- api tokens --------------------------------------------------------- #
+
+    def create_token(self, name: str, token_hash: str, scopes: Iterable[str]) -> str:
+        token_id = "tok_" + hashlib.sha1(f"{self.tenant}|{name}|{token_hash}".encode()).hexdigest()[:16]
+        with self.engine.begin() as conn:
+            conn.execute(
+                sa.insert(t.api_tokens).values(
+                    id=token_id,
+                    tenant_id=self.tenant,
+                    name=name,
+                    token_hash=token_hash,
+                    scopes=sorted(scopes),
+                    created_at=utcnow(),
+                )
+            )
+        return token_id
+
+    def principal_for_token(self, token_hash: str) -> dict[str, Any] | None:
+        with self.engine.begin() as conn:
+            row = (
+                conn.execute(
+                    sa.select(t.api_tokens).where(
+                        t.api_tokens.c.tenant_id == self.tenant,
+                        t.api_tokens.c.token_hash == token_hash,
+                        t.api_tokens.c.revoked_at.is_(None),
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            if row is None:
+                return None
+            conn.execute(
+                sa.update(t.api_tokens)
+                .where(t.api_tokens.c.id == row["id"])
+                .values(last_used_at=utcnow())
+            )
+        item = dict(row)
+        item["scopes"] = list(item.get("scopes") or [])
+        return item
+
+    def list_tokens(self) -> list[dict[str, Any]]:
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                sa.select(
+                    t.api_tokens.c.id,
+                    t.api_tokens.c.name,
+                    t.api_tokens.c.scopes,
+                    t.api_tokens.c.created_at,
+                    t.api_tokens.c.last_used_at,
+                    t.api_tokens.c.revoked_at,
+                ).where(t.api_tokens.c.tenant_id == self.tenant)
+            ).mappings()
+            result = []
+            for row in rows:
+                item = dict(row)
+                item["scopes"] = list(item.get("scopes") or [])
+                for key in ("created_at", "last_used_at", "revoked_at"):
+                    value = item.get(key)
+                    if isinstance(value, datetime):
+                        item[key] = _aware(value).isoformat(timespec="seconds")
+                result.append(item)
+            return result
+
+    def revoke_token(self, token_id: str) -> bool:
+        with self.engine.begin() as conn:
+            cursor = conn.execute(
+                sa.update(t.api_tokens)
+                .where(t.api_tokens.c.id == token_id, t.api_tokens.c.tenant_id == self.tenant)
+                .values(revoked_at=utcnow())
+            )
+            return cursor.rowcount > 0
+
+    # -- write operations (triage) ------------------------------------------ #
+
+    def update_finding(
+        self,
+        ident: str,
+        *,
+        status: str | None = None,
+        assignee: str | None = None,
+        actor: str = "api",
+    ) -> dict[str, Any] | None:
+        """Change triage fields and record every change in `finding_history`."""
+        row = self.get_finding(ident)
+        if row is None:
+            return None
+
+        changes: dict[str, Any] = {}
+        history: list[tuple[str, str, str]] = []
+        if status is not None and status != row.get("status"):
+            changes["status"] = status
+            history.append(("status", str(row.get("status") or ""), status))
+        if assignee is not None and assignee != row.get("assignee"):
+            changes["assignee"] = assignee
+            history.append(("assignee", str(row.get("assignee") or ""), assignee))
+        if not changes:
+            return row
+
+        now = utcnow()
+        with self.engine.begin() as conn:
+            conn.execute(sa.update(t.findings).where(t.findings.c.id == row["id"]).values(**changes))
+            for field_name, old, new in history:
+                conn.execute(
+                    sa.insert(t.finding_history).values(
+                        id="fh_" + hashlib.sha1(f"{row['id']}|{field_name}|{now.isoformat()}".encode()).hexdigest()[:16],
+                        finding_id=row["id"],
+                        tenant_id=self.tenant,
+                        changed_at=now,
+                        actor=actor,
+                        field=field_name,
+                        old_value=old,
+                        new_value=new,
+                    )
+                )
+        updated = self.get_finding(row["id"])
+        return updated
+
+    def finding_history(self, finding_id: str) -> list[dict[str, Any]]:
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                sa.select(t.finding_history)
+                .where(t.finding_history.c.finding_id == finding_id)
+                .order_by(t.finding_history.c.changed_at.desc())
+            ).mappings()
+            result = []
+            for row in rows:
+                item = dict(row)
+                value = item.get("changed_at")
+                if isinstance(value, datetime):
+                    item["changed_at"] = _aware(value).isoformat(timespec="seconds")
+                result.append(item)
+            return result
+
+    def update_case(
+        self, case_id: str, *, status: str | None = None, assignee: str | None = None, actor: str = "api"
+    ) -> dict[str, Any] | None:
+        with self.engine.begin() as conn:
+            row = (
+                conn.execute(
+                    sa.select(t.cases).where(
+                        t.cases.c.tenant_id == self.tenant, t.cases.c.id == case_id
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            if row is None:
+                return None
+            values: dict[str, Any] = {"updated_at": utcnow()}
+            if status is not None and status != row["status"]:
+                values["status"] = status
+                if status == "closed":
+                    values["closed_at"] = utcnow()
+            if assignee is not None and assignee != row["assignee"]:
+                values["assignee"] = assignee
+            conn.execute(sa.update(t.cases).where(t.cases.c.id == case_id).values(**values))
+            conn.execute(
+                sa.insert(t.audit_log).values(
+                    id="aud_" + hashlib.sha1(f"{case_id}|{utcnow().isoformat()}".encode()).hexdigest()[:16],
+                    tenant_id=self.tenant,
+                    at=utcnow(),
+                    actor=actor,
+                    action="case.update",
+                    object_type="case",
+                    object_id=case_id,
+                    meta={key: str(value) for key, value in values.items() if key != "updated_at"},
+                )
+            )
+        return self.get_case(case_id)
+
+    def attach_finding(self, case_id: str, finding_id: str, reason: str = "manual") -> bool:
+        with self.engine.begin() as conn:
+            exists = conn.scalar(
+                sa.select(t.case_findings.c.finding_id).where(
+                    t.case_findings.c.case_id == case_id,
+                    t.case_findings.c.finding_id == finding_id,
+                )
+            )
+            if exists:
+                return False
+            conn.execute(
+                sa.insert(t.case_findings).values(
+                    case_id=case_id, finding_id=finding_id, added_at=utcnow(), reason=reason
+                )
+            )
+            conn.execute(
+                sa.update(t.cases).where(t.cases.c.id == case_id).values(updated_at=utcnow())
+            )
+        return True
+
+    def detach_finding(self, case_id: str, finding_id: str) -> bool:
+        with self.engine.begin() as conn:
+            cursor = conn.execute(
+                sa.delete(t.case_findings).where(
+                    t.case_findings.c.case_id == case_id,
+                    t.case_findings.c.finding_id == finding_id,
+                )
+            )
+            conn.execute(
+                sa.update(t.cases).where(t.cases.c.id == case_id).values(updated_at=utcnow())
+            )
+            return cursor.rowcount > 0
+
     # -- detection content -------------------------------------------------- #
 
     def sync_rules(self, kind: str, rows: Iterable[dict[str, Any]]) -> int:
@@ -848,7 +1052,7 @@ class Repositories:
         for key in ("first_seen", "last_seen"):
             value = data.get(key)
             if isinstance(value, datetime):
-                data[key] = _aware(value).isoformat(timespec="seconds")
+                data[key] = to_iso(_aware(value))
         data["asset"] = asset
         data["references"] = data.pop("refs", [])
         return data

@@ -9,20 +9,42 @@ integration script need.
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import PlainTextResponse
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from pydantic import BaseModel
 
 from .. import __version__
 from ..report import build_report
+from ..sinks import documents as export_documents
+from ..sinks import render_jsonl
 from ..store.repositories import Repositories
 from ..validate import build_coverage, summarize
+from .auth import Principal, bearer_token, hash_token
+
+WEB_INDEX = Path(__file__).resolve().parents[1] / "web" / "index.html"
 
 DESCRIPTION = """
 P4B detection engineering workbench.
 
-Read-only surface over normalized findings, ATT&CK coverage, purple-team results
-and grouped cases. Generated documentation for this API is what `/docs` shows.
+Normalized findings, ATT&CK coverage, purple-team results and grouped cases. Reads
+are open by default for local use; set `require_auth: true` before exposing the API,
+and use `p4b token create` to issue a bearer token for writes.
 """
+
+FINDING_STATUSES = {"open", "triaged", "suppressed", "fixed", "false_positive"}
+CASE_STATUSES = {"open", "triage", "contained", "closed"}
+
+
+class FindingPatch(BaseModel):
+    status: str | None = None
+    assignee: str | None = None
+
+
+class CasePatch(BaseModel):
+    status: str | None = None
+    assignee: str | None = None
 
 
 def _split(value: str | None) -> list[str] | None:
@@ -30,12 +52,47 @@ def _split(value: str | None) -> list[str] | None:
     return items or None
 
 
-def create_app(repos: Repositories) -> FastAPI:
+def create_app(repos: Repositories, *, require_auth: bool = False) -> FastAPI:
     app = FastAPI(title="P4B", version=__version__, description=DESCRIPTION)
 
+    @app.middleware("http")
+    async def enforce_auth(request: Request, call_next):
+        path = request.url.path
+        if require_auth and path.startswith("/api/v1") and path != "/api/v1/health":
+            token = bearer_token(request.headers.get("authorization"))
+            row = repos.principal_for_token(hash_token(token)) if token else None
+            if row is None:
+                return JSONResponse(
+                    {"detail": "missing or invalid bearer token"},
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            request.state.principal = Principal(name=row["name"], scopes=tuple(row["scopes"]))
+        return await call_next(request)
+
+    def current(request: Request) -> Principal:
+        who = getattr(request.state, "principal", None)
+        if who is not None:
+            return who
+        if require_auth:  # pragma: no cover - middleware already refused
+            raise HTTPException(status_code=401, detail="missing bearer token")
+        return Principal(name="anonymous", scopes=("admin",))
+
+    def require_write(request: Request) -> Principal:
+        who = current(request)
+        if not who.can("write"):
+            raise HTTPException(status_code=403, detail="token lacks the 'write' scope")
+        return who
+
     @app.get("/", include_in_schema=False)
-    def root() -> dict:
+    def root():
+        if WEB_INDEX.is_file():
+            return FileResponse(WEB_INDEX, media_type="text/html")
         return {"service": "p4b", "version": __version__, "docs": "/docs", "api": "/api/v1"}
+
+    @app.get("/api/v1", include_in_schema=False)
+    def api_root() -> dict:
+        return {"service": "p4b", "version": __version__, "docs": "/docs"}
 
     @app.get("/api/v1/health", tags=["system"])
     def health() -> dict:
@@ -116,5 +173,67 @@ def create_app(repos: Repositories) -> FastAPI:
     @app.get("/api/v1/report.md", response_class=PlainTextResponse, tags=["report"])
     def report() -> PlainTextResponse:
         return PlainTextResponse(build_report(repos), media_type="text/markdown; charset=utf-8")
+
+    @app.get("/api/v1/export", response_class=PlainTextResponse, tags=["report"])
+    def export(
+        fmt: str = Query("ecs", alias="format", pattern="^(ecs|ocsf)$"),
+        limit: int = Query(100_000, ge=1, le=500_000),
+    ) -> PlainTextResponse:
+        rows = repos.list_findings(limit=limit)
+        return PlainTextResponse(
+            render_jsonl(export_documents(rows, fmt)),
+            media_type="application/x-ndjson",
+            headers={"Content-Disposition": f'attachment; filename="p4b-{fmt}.jsonl"'},
+        )
+
+    # -- triage (writes) ---------------------------------------------------- #
+
+    @app.patch("/api/v1/findings/{finding_id}", tags=["triage"])
+    def patch_finding(finding_id: str, payload: FindingPatch, request: Request) -> dict:
+        who = require_write(request)
+        if payload.status is not None and payload.status not in FINDING_STATUSES:
+            raise HTTPException(
+                status_code=422, detail=f"status must be one of {sorted(FINDING_STATUSES)}"
+            )
+        row = repos.update_finding(
+            finding_id, status=payload.status, assignee=payload.assignee, actor=who.name
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"finding not found: {finding_id}")
+        return row
+
+    @app.get("/api/v1/findings/{finding_id}/history", tags=["triage"])
+    def finding_history(finding_id: str) -> list[dict]:
+        return repos.finding_history(finding_id)
+
+    @app.patch("/api/v1/cases/{case_id}", tags=["triage"])
+    def patch_case(case_id: str, payload: CasePatch, request: Request) -> dict:
+        who = require_write(request)
+        if payload.status is not None and payload.status not in CASE_STATUSES:
+            raise HTTPException(
+                status_code=422, detail=f"status must be one of {sorted(CASE_STATUSES)}"
+            )
+        row = repos.update_case(
+            case_id, status=payload.status, assignee=payload.assignee, actor=who.name
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"case not found: {case_id}")
+        return row
+
+    @app.post("/api/v1/cases/{case_id}/findings/{finding_id}", tags=["triage"])
+    def attach_finding(case_id: str, finding_id: str, request: Request) -> dict:
+        who = require_write(request)
+        if repos.get_case(case_id) is None:
+            raise HTTPException(status_code=404, detail=f"case not found: {case_id}")
+        repos.attach_finding(case_id, finding_id, reason=f"manual:{who.name}")
+        return repos.get_case(case_id) or {}
+
+    @app.delete("/api/v1/cases/{case_id}/findings/{finding_id}", tags=["triage"])
+    def detach_finding(case_id: str, finding_id: str, request: Request) -> dict:
+        require_write(request)
+        if repos.get_case(case_id) is None:
+            raise HTTPException(status_code=404, detail=f"case not found: {case_id}")
+        repos.detach_finding(case_id, finding_id)
+        return repos.get_case(case_id) or {}
 
     return app

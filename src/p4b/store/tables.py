@@ -109,6 +109,7 @@ findings = sa.Table(
     sa.Column("confidence", sa.Float, nullable=False, server_default="0.8"),
     sa.Column("risk", sa.Float, nullable=False, server_default="0.0"),
     sa.Column("status", sa.String(24), nullable=False, server_default="open"),
+    sa.Column("assignee", sa.String(128), nullable=False, server_default=""),
     _ts("first_seen"),
     _ts("last_seen"),
     sa.Column("count", sa.Integer, nullable=False, server_default="1"),
