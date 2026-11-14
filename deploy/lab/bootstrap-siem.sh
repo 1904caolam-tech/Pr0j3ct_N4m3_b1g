@@ -35,6 +35,7 @@ fi
 
 log "starting wazuh/wazuh-manager:${WAZUH_TAG}"
 docker run -d --name wazuh-manager --restart unless-stopped \
+    --hostname siem \
     -p 1514:1514/tcp -p 1515:1515/tcp -p 55000:55000/tcp \
     -v "${WAZUH_DIR}/logs:/var/ossec/logs" \
     -v "${WAZUH_DIR}/testlogs:/var/log/p4b-test" \
@@ -69,4 +70,8 @@ cat <<EOF
 
   verify an alert appears within a minute of the agent connecting:
     sudo docker exec wazuh-manager tail -n 5 /var/ossec/logs/alerts/alerts.json
+
+  wire the lab test alert (also disables vulnerability-detection, which otherwise
+  downloads multi-GB CVE feeds into the container and can fill a 20 GB VM):
+    sudo bash deploy/lab/wazuh-configure.sh
 EOF

@@ -296,6 +296,25 @@ p4b:    ingest suricata -> 1 finding  (asset 93.184.216.34, no ATT&CK: hunting r
 The Suricata finding has no ATT&CK technique — that is honest: a hunting rule has no
 technique mapping in the rule metadata, and P4B does not invent one.
 
+### Wazuh manager gotchas (4.14)
+
+- The image enables `<vulnerability-detection>` by default and downloads CVE feeds
+  into the container's writable layer: **3–7 GB within minutes**. On the 20 GB lab VM
+  that filled `/` (`no space left on device`) and Docker could no longer create
+  containers. Disable it, or give the siem VM ≥ 30 GB.
+- 4.14 renamed the block: it is `vulnerability-detection`, **not** the older
+  `vulnerability-detector`. A script that matches the old name silently does nothing.
+- The manager's own agent name is the container hostname. `bootstrap-siem.sh` passes
+  `--hostname siem` so findings are keyed by a readable name, not a container id.
+- Recreating the container throws away anything appended to `local_rules.xml`.
+  `deploy/lab/wazuh-configure.sh` rebuilds `ossec.conf` from the image's pristine
+  file, disables VD, adds one localfile and rule 100100, restarts the manager and
+  emits one alert. Running it twice does not duplicate blocks.
+
+Result on the real lab: `alerts.json` held 930 alerts (232 at level ≥ 7), P4B turned
+them into 6 findings (the rest merged by fingerprint), and `verify-lab` reported
+**8 pass / 0 fail / 0 skip**.
+
 ## Verify the lab
 
 ```bash
