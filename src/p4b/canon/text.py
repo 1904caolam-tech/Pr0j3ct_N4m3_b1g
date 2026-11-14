@@ -16,7 +16,7 @@ SECRET_KEYS = re.compile(
 
 
 def mask_secret(value: str, keep: int = 4) -> str:
-    """``AKIAIOSFODNN7EXAMPLE`` -> ``AKIA...(20)``: comparable, not usable."""
+    """``AKIA-EXAMPLE-DO-NOT-USE`` -> ``AKIA...(20)``: comparable, not usable."""
     text = str(value or "")
     if len(text) <= keep:
         return "*" * len(text)
