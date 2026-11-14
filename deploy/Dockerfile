@@ -46,9 +46,9 @@ FROM app AS scanner
 # Pinned on purpose: scanners change output formats between minor releases, and the
 # parsers here are written against specific shapes. Bump deliberately, then run the
 # golden tests against real output.
-ARG TRIVY_VERSION=0.50.1
-ARG NUCLEI_VERSION=3.2.0
-ARG GITLEAKS_VERSION=8.18.2
+ARG TRIVY_VERSION=0.76.2
+ARG NUCLEI_VERSION=3.11.1
+ARG GITLEAKS_VERSION=8.30.1
 
 USER root
 

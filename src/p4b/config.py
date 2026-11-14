@@ -54,11 +54,27 @@ class Settings:
     @classmethod
     def load(cls, path: str | Path | None = None) -> Settings:
         settings = cls()
+        explicit: dict[str, Any] = {}
+
         config_path = Path(path) if path else _first_existing(CONFIG_NAMES)
         if config_path and Path(config_path).is_file():
             data = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+            explicit.update(data)
             settings.apply(data)
-        settings.apply(_env_overrides())
+
+        overrides = _env_overrides()
+        explicit.update(overrides)
+        settings.apply(overrides)
+
+        # Sub-directories follow data_dir unless the operator pinned them, otherwise
+        # `P4B_DATA_DIR=/data` would still write reports and raw artifacts to ./data.
+        for key, name in (
+            ("reports_dir", "reports"),
+            ("raw_dir", "raw"),
+            ("rules_dir", "rules"),
+        ):
+            if key not in explicit:
+                setattr(settings, key, Path(settings.data_dir) / name)
         return settings
 
     def apply(self, data: dict[str, Any]) -> None:

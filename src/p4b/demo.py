@@ -43,11 +43,22 @@ ASSET_ALIASES: tuple[tuple[str, str, str, str], ...] = (
 
 
 def demo_root() -> Path:
-    """Where the bundled fixtures live (overridable for a custom scenario)."""
+    """Locate the bundled fixtures.
+
+    Order matters: an editable checkout keeps them at the repository root, while the
+    container image copies them next to the working directory. Resolving only from
+    ``__file__`` breaks in the image, because the package lives in site-packages.
+    """
     override = os.environ.get("P4B_DEMO_ROOT")
-    if override:
-        return Path(override)
-    return Path(__file__).resolve().parents[2] / "demo"
+    candidates = [Path(override)] if override else []
+    candidates.append(Path.cwd() / "demo")
+    candidates.append(Path(__file__).resolve().parents[2] / "demo")
+
+    for candidate in candidates:
+        if (candidate / "fixtures").is_dir():
+            return candidate
+    tried = ", ".join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(f"demo fixtures not found; tried: {tried}")
 
 
 def run_demo(settings: Settings, reset: bool = False, window_seconds: int = 900) -> dict[str, Any]:
@@ -56,8 +67,6 @@ def run_demo(settings: Settings, reset: bool = False, window_seconds: int = 900)
 
     settings.ensure_dirs()
     root = demo_root()
-    if not root.is_dir():
-        raise FileNotFoundError(f"demo fixtures not found: {root}")
 
     steps: dict[str, Any] = {"root": str(root), "ingest": {}, "content": {}, "aliases": 0}
     engine = make_engine(settings.database_url())
