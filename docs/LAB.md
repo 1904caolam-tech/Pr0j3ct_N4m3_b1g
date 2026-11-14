@@ -315,6 +315,61 @@ Result on the real lab: `alerts.json` held 930 alerts (232 at level ≥ 7), P4B 
 them into 6 findings (the rest merged by fingerprint), and `verify-lab` reported
 **8 pass / 0 fail / 0 skip**.
 
+### Live capture (Suricata on ens33)
+
+`tcpreplay` alone is not enough on a vNIC: tcpdump saw the replayed frames but
+Suricata's AF_PACKET reader did not, so eve.json stayed empty. Real traffic between
+the VMs works:
+
+```bash
+# sensor
+python3 -m http.server 8080 &
+# p4b
+curl -A 'curl/8.5.0' -H 'Host: 93.184.216.34' http://192.168.159.168:8080/loot
+```
+
+That produced real alerts, including `ET INFO Python SimpleHTTP ServerBanner`. The
+`ET HUNTING curl User-Agent to Dotted Quad` rule only fires for
+`$HOME_NET -> $EXTERNAL_NET`; a request inside the lab subnet is HOME_NET ->
+HOME_NET and cannot match. Use `suricata -r pcap` (offline) when that rule is the
+target.
+
+Two operational traps:
+
+- **Never run two instances.** The second one fails with
+  `fanout not supported by kernel: ... cluster-id 1 already in use` and packets
+  reach only one of them.
+- `pkill -x suricata` does **not** work: the process renames itself to
+  `Suricata-Main`. Use `pkill -f 'suricata -i ens33'`.
+- Rules take ~35 s to load (53k signatures). Replaying before `Engine started`
+  appears in `suricata.log` captures nothing.
+
+### Wazuh agent (real, id 001)
+
+`deploy/lab/wazuh-agent.sh` starts the agent container, enrolls it as `sensor`
+(the manager assigns id 001) and tails one localfile. The event reaches rule
+100100:
+
+```
+agent=sensor(001) rule=100100 level=10 | P4B lab test alert from Wazuh manager
+```
+
+Logcollector quirk: if the localfile does not exist at agent start it logs
+`(1103) Could not open file` and does **not** pick the file up once created. The
+script creates the file before starting the container.
+
+### Growing the VM disk
+
+After enlarging the vmdk, the guest keeps the old partition size; `df` still shows
+20 G. Grow it inside the guest:
+
+```bash
+sudo growpart /dev/sda 2
+sudo resize2fs /dev/sda2
+```
+
+Final state of the lab: **22 findings / 13 assets**, `verify-lab` **8 pass / 0 fail**.
+
 ## Verify the lab
 
 ```bash
