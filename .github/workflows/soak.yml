@@ -1,0 +1,32 @@
+name: soak
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: "number of iterations"
+        required: false
+        default: "50"
+
+jobs:
+  soak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Soak the loop
+        run: python deploy/soak/soak.py --iterations "${{ inputs.iterations }}"
+      - name: Repeat the test suite
+        run: python deploy/soak/tests.py --iterations "${{ inputs.iterations }}"
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-${{ inputs.iterations }}
+          path: artifacts/soak/
+          retention-days: 30

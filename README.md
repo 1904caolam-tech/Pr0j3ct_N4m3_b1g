@@ -60,6 +60,26 @@ for real:
 `deploy/lab/verify-lab.sh` reports **8 pass / 0 fail / 0 skip**.
 Build notes and traps: [docs/LAB.md](docs/LAB.md).
 
+## Verification
+
+Repeatability is checked, not assumed. The committed artifacts in
+[`artifacts/soak/`](artifacts/soak/) were produced by the scripts beside them:
+
+| Artifact | Evidence |
+|---|---|
+| [`soak-50.md`](artifacts/soak/soak-50.md) | 50 consecutive full loops (fresh DB → demo → re-ingest → re-validate → ECS + OCSF → 9 API reads): **0 failures, 0 drift** |
+| [`pytest-50.md`](artifacts/soak/pytest-50.md) | the 292-test suite run 50 times: **292 passed on every run** |
+
+```bash
+python deploy/soak/soak.py --iterations 50
+python deploy/soak/tests.py --iterations 50
+```
+
+The raw ECS export hash differs between runs because Gitleaks findings carry no
+timestamp and are stamped at ingestion; the artifact reports both the stable hash
+(identical) and the raw-hash variance. The `soak` GitHub workflow runs the same
+scripts on demand and uploads the artifacts.
+
 ## Quickstart
 
 ```bash

@@ -1,0 +1,421 @@
+{
+  "generated_at": "2026-11-14T19:28:09+00:00",
+  "iterations_requested": 50,
+  "python": "3.10.11",
+  "platform": "Windows-10-10.0.26300-SP0",
+  "summary": {
+    "unique_passed": [
+      292
+    ],
+    "runs_with_failures": 0,
+    "duration_ms": {
+      "min": 12922.8,
+      "median": 13690.3,
+      "p95": 13963.7,
+      "max": 14023.6
+    }
+  },
+  "failures": [],
+  "iterations": [
+    {
+      "iteration": 1,
+      "duration_ms": 13917.3,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.61s"
+    },
+    {
+      "iteration": 2,
+      "duration_ms": 13714.5,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.46s"
+    },
+    {
+      "iteration": 3,
+      "duration_ms": 13675.8,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.42s"
+    },
+    {
+      "iteration": 4,
+      "duration_ms": 13821.2,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.59s"
+    },
+    {
+      "iteration": 5,
+      "duration_ms": 13674.9,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.42s"
+    },
+    {
+      "iteration": 6,
+      "duration_ms": 13714.8,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.30s"
+    },
+    {
+      "iteration": 7,
+      "duration_ms": 13544.3,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.30s"
+    },
+    {
+      "iteration": 8,
+      "duration_ms": 13659.9,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.47s"
+    },
+    {
+      "iteration": 9,
+      "duration_ms": 13889.6,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.64s"
+    },
+    {
+      "iteration": 10,
+      "duration_ms": 13583.7,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.33s"
+    },
+    {
+      "iteration": 11,
+      "duration_ms": 13666.2,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.31s"
+    },
+    {
+      "iteration": 12,
+      "duration_ms": 13571.2,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.34s"
+    },
+    {
+      "iteration": 13,
+      "duration_ms": 13675.3,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.43s"
+    },
+    {
+      "iteration": 14,
+      "duration_ms": 13963.7,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.69s"
+    },
+    {
+      "iteration": 15,
+      "duration_ms": 13665.6,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.43s"
+    },
+    {
+      "iteration": 16,
+      "duration_ms": 14023.6,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.76s"
+    },
+    {
+      "iteration": 17,
+      "duration_ms": 13732.4,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.50s"
+    },
+    {
+      "iteration": 18,
+      "duration_ms": 13930.9,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.66s"
+    },
+    {
+      "iteration": 19,
+      "duration_ms": 13639.4,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.37s"
+    },
+    {
+      "iteration": 20,
+      "duration_ms": 13749.9,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.45s"
+    },
+    {
+      "iteration": 21,
+      "duration_ms": 13804.1,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.42s"
+    },
+    {
+      "iteration": 22,
+      "duration_ms": 13629.7,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.41s"
+    },
+    {
+      "iteration": 23,
+      "duration_ms": 13893.3,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.68s"
+    },
+    {
+      "iteration": 24,
+      "duration_ms": 14021.1,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.76s"
+    },
+    {
+      "iteration": 25,
+      "duration_ms": 13716.8,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.39s"
+    },
+    {
+      "iteration": 26,
+      "duration_ms": 13751.7,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.42s"
+    },
+    {
+      "iteration": 27,
+      "duration_ms": 13639.0,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.40s"
+    },
+    {
+      "iteration": 28,
+      "duration_ms": 13975.0,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.72s"
+    },
+    {
+      "iteration": 29,
+      "duration_ms": 13719.1,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.50s"
+    },
+    {
+      "iteration": 30,
+      "duration_ms": 13671.0,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.38s"
+    },
+    {
+      "iteration": 31,
+      "duration_ms": 13664.5,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.29s"
+    },
+    {
+      "iteration": 32,
+      "duration_ms": 13534.6,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.32s"
+    },
+    {
+      "iteration": 33,
+      "duration_ms": 13838.3,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.62s"
+    },
+    {
+      "iteration": 34,
+      "duration_ms": 13551.5,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.32s"
+    },
+    {
+      "iteration": 35,
+      "duration_ms": 13640.0,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.36s"
+    },
+    {
+      "iteration": 36,
+      "duration_ms": 13606.5,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.26s"
+    },
+    {
+      "iteration": 37,
+      "duration_ms": 13733.1,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.40s"
+    },
+    {
+      "iteration": 38,
+      "duration_ms": 13704.8,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.47s"
+    },
+    {
+      "iteration": 39,
+      "duration_ms": 13672.3,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.44s"
+    },
+    {
+      "iteration": 40,
+      "duration_ms": 13638.5,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.35s"
+    },
+    {
+      "iteration": 41,
+      "duration_ms": 13711.8,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.44s"
+    },
+    {
+      "iteration": 42,
+      "duration_ms": 13651.5,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.40s"
+    },
+    {
+      "iteration": 43,
+      "duration_ms": 13777.0,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.53s"
+    },
+    {
+      "iteration": 44,
+      "duration_ms": 13806.3,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.51s"
+    },
+    {
+      "iteration": 45,
+      "duration_ms": 13488.4,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.28s"
+    },
+    {
+      "iteration": 46,
+      "duration_ms": 13714.3,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.50s"
+    },
+    {
+      "iteration": 47,
+      "duration_ms": 13808.4,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.55s"
+    },
+    {
+      "iteration": 48,
+      "duration_ms": 13509.7,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 11.33s"
+    },
+    {
+      "iteration": 49,
+      "duration_ms": 13075.5,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 10.89s"
+    },
+    {
+      "iteration": 50,
+      "duration_ms": 12922.8,
+      "passed": 292,
+      "failed": 0,
+      "exit_code": 0,
+      "tail": "292 passed, 1 warning in 10.72s"
+    }
+  ]
+}
