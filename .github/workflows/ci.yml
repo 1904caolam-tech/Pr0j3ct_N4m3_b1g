@@ -23,3 +23,5 @@ jobs:
         run: python -m ruff check src tests
       - name: Test
         run: python -m pytest -q
+      - name: Validate compose file
+        run: docker compose -f deploy/docker-compose.yml config --quiet

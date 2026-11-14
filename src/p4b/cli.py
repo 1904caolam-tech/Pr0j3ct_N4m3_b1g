@@ -18,6 +18,7 @@ from .api.auth import hash_token, new_token, parse_scopes
 from .config import Settings
 from .content import ConditionError, load_sigma, load_yara, translate
 from .demo import run_demo
+from .jobs import run_due, run_job
 from .report import build_report
 from .scan import Scope, run_scan
 from .sinks import documents as export_documents
@@ -138,6 +139,31 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--format", choices=["ecs", "ocsf"], default="ecs")
     export.add_argument("--out", help="output path (default: data/exports/<format>.jsonl)")
     export.add_argument("--limit", type=int, default=100_000)
+
+    job = sub.add_parser("job", parents=[common], help="manage scheduled scans")
+    job_sub = job.add_subparsers(dest="job_command", required=True)
+    job_add = job_sub.add_parser("add", parents=[common], help="store a scheduled scan")
+    job_add.add_argument("--name", required=True)
+    job_add.add_argument("--tool", required=True, choices=["nuclei", "trivy", "gitleaks", "yara"])
+    job_add.add_argument("--target", action="append", required=True)
+    job_add.add_argument("--allow", action="append", default=[])
+    job_add.add_argument("--deny", action="append", default=[])
+    job_add.add_argument("--rules", help="yara rule file")
+    job_add.add_argument("--kind", help="trivy target kind")
+    job_add.add_argument("--every", type=int, default=60, metavar="MINUTES")
+    job_add.add_argument("--not-now", action="store_true", help="wait one interval before the first run")
+    job_sub.add_parser("list", parents=[common], help="list scheduled scans")
+    job_run = job_sub.add_parser("run", parents=[common], help="run a job immediately")
+    job_run.add_argument("id")
+    job_enable = job_sub.add_parser("enable", parents=[common], help="enable a job")
+    job_enable.add_argument("id")
+    job_disable = job_sub.add_parser("disable", parents=[common], help="disable a job")
+    job_disable.add_argument("id")
+
+    worker = sub.add_parser("worker", parents=[common], help="run due scheduled scans")
+    worker.add_argument("--once", action="store_true", help="run due jobs once and exit")
+    worker.add_argument("--sleep", type=int, default=60, help="seconds between scheduler ticks")
+    worker.add_argument("--limit", type=int, default=10)
     return parser
 
 
@@ -843,6 +869,109 @@ def cmd_export(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def cmd_job(args: argparse.Namespace, settings: Settings) -> int:
+    engine = make_engine(settings.database_url())
+    try:
+        upgrade(engine, settings.database_url())
+        repos = Repositories(engine)
+        repos.ensure_tenant()
+
+        if args.job_command == "add":
+            opts: dict[str, object] = {}
+            if args.rules:
+                opts["rules"] = args.rules
+                opts["rule_file"] = args.rules
+            if args.kind:
+                opts["kind"] = args.kind
+            spec = {
+                "tool": args.tool,
+                "targets": list(args.target),
+                "allow": list(args.allow),
+                "deny": list(args.deny),
+                "opts": opts,
+            }
+            job_id = repos.add_job(
+                args.name, spec, every_minutes=args.every, run_now=not args.not_now
+            )
+            print(f"created {job_id}  {args.tool}  every {args.every}m")
+            return 0
+
+        if args.job_command == "list":
+            rows = repos.list_jobs()
+
+            def render(items: list[dict]) -> str:
+                if not items:
+                    return "no jobs (create one with `p4b job add --name nightly --tool yara ...`)"
+                table = _table(
+                    [
+                        [
+                            item["name"],
+                            str((item.get("spec") or {}).get("tool") or "-"),
+                            item["cron"],
+                            "yes" if item["enabled"] else "no",
+                            str(item.get("next_run_at") or "-")[:19],
+                            str(item.get("last_run_id") or "-")[:20],
+                        ]
+                        for item in items
+                    ],
+                    ["name", "tool", "schedule", "enabled", "next run", "last run"],
+                )
+                return f"{table}\n\n{len(items)} job(s)"
+
+            _print(args, rows, render)
+            return 0
+
+        if args.job_command == "run":
+            job = repos.get_job(args.id)
+            if job is None:
+                print(f"no such job: {args.id}", file=sys.stderr)
+                return 1
+            result = run_job(repos, settings, job)
+            print(
+                f"{result.name}: {result.findings} finding(s), {result.created} new, "
+                f"{len(result.errors)} error(s)  run={result.run_id}"
+            )
+            for error in result.errors[:5]:
+                print(f"  ! {error}")
+            return 0
+
+        enabled = args.job_command == "enable"
+        ok = repos.set_job_enabled(args.id, enabled)
+        print(f"{'enabled' if enabled else 'disabled'} {args.id}" if ok else f"no such job: {args.id}")
+        return 0 if ok else 1
+    finally:
+        engine.dispose()
+
+
+def cmd_worker(args: argparse.Namespace, settings: Settings) -> int:
+    settings.ensure_dirs()
+    engine = make_engine(settings.database_url())
+    try:
+        upgrade(engine, settings.database_url())
+        repos = Repositories(engine)
+        repos.ensure_tenant()
+
+        while True:
+            results = run_due(repos, settings, limit=args.limit)
+            if not results:
+                print("no due jobs")
+            for result in results:
+                print(
+                    f"{result.name}: {result.findings} finding(s), {result.created} new, "
+                    f"{len(result.errors)} error(s)"
+                )
+                for error in result.errors[:3]:
+                    print(f"  ! {error}")
+            if args.once:
+                break
+            time.sleep(max(5, int(args.sleep)))
+    except KeyboardInterrupt:
+        print("\nstopped")
+    finally:
+        engine.dispose()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -884,6 +1013,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_token(args, settings)
     if args.command == "export":
         return cmd_export(args, settings)
+    if args.command == "job":
+        return cmd_job(args, settings)
+    if args.command == "worker":
+        return cmd_worker(args, settings)
 
     parser.print_help()
     return 2

@@ -46,6 +46,7 @@ p4b doctor        # detect the ten tools, record versions
 p4b demo          # full loop on bundled fixtures -> data/reports/report.md
 p4b serve         # UI at / and read-only API + OpenAPI docs at /docs
 p4b export --format ocsf   # NDJSON for another SIEM (ecs or ocsf)
+p4b worker --once          # run due scheduled scans (p4b job add ...)
 p4b config        # show effective settings
 pytest -q
 ```

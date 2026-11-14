@@ -679,6 +679,98 @@ class Repositories:
             )
             return cursor.rowcount > 0
 
+    # -- jobs --------------------------------------------------------------- #
+
+    def add_job(
+        self,
+        name: str,
+        spec: dict[str, Any],
+        *,
+        every_minutes: int = 60,
+        kind: str = "scan",
+        run_now: bool = True,
+    ) -> str:
+        now = utcnow()
+        job_id = "job_" + hashlib.sha1(f"{self.tenant}|{name}|{now.isoformat()}".encode()).hexdigest()[:16]
+        payload = dict(spec)
+        payload["every_minutes"] = max(1, int(every_minutes))
+        with self.engine.begin() as conn:
+            conn.execute(
+                sa.insert(t.jobs).values(
+                    id=job_id,
+                    tenant_id=self.tenant,
+                    name=name,
+                    kind=kind,
+                    cron=f"every {payload['every_minutes']}m",
+                    spec=payload,
+                    enabled=True,
+                    next_run_at=now if run_now else now + timedelta(minutes=payload["every_minutes"]),
+                    created_at=now,
+                )
+            )
+        return job_id
+
+    def _job_dict(self, row: Any) -> dict[str, Any]:
+        item = dict(row)
+        item["spec"] = json.loads(item["spec"]) if isinstance(item.get("spec"), str) else (item.get("spec") or {})
+        for key in ("next_run_at", "created_at"):
+            value = item.get(key)
+            if isinstance(value, datetime):
+                item[key] = _aware(value).isoformat(timespec="seconds")
+        return item
+
+    def list_jobs(self) -> list[dict[str, Any]]:
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                sa.select(t.jobs).where(t.jobs.c.tenant_id == self.tenant).order_by(t.jobs.c.name)
+            ).mappings()
+            return [self._job_dict(row) for row in rows]
+
+    def get_job(self, job_id: str) -> dict[str, Any] | None:
+        with self.engine.connect() as conn:
+            row = (
+                conn.execute(
+                    sa.select(t.jobs).where(
+                        t.jobs.c.tenant_id == self.tenant, t.jobs.c.id == job_id
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        return self._job_dict(row) if row else None
+
+    def due_jobs(self, now: datetime | None = None, limit: int = 10) -> list[dict[str, Any]]:
+        moment = now or utcnow()
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                sa.select(t.jobs)
+                .where(
+                    t.jobs.c.tenant_id == self.tenant,
+                    t.jobs.c.enabled.is_(True),
+                    sa.or_(t.jobs.c.next_run_at.is_(None), t.jobs.c.next_run_at <= moment),
+                )
+                .order_by(t.jobs.c.next_run_at)
+                .limit(max(1, int(limit)))
+            ).mappings()
+        return [self._job_dict(row) for row in rows]
+
+    def mark_job_run(self, job_id: str, run_id: str, next_run_at: datetime) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(
+                sa.update(t.jobs)
+                .where(t.jobs.c.id == job_id, t.jobs.c.tenant_id == self.tenant)
+                .values(last_run_id=run_id, next_run_at=next_run_at)
+            )
+
+    def set_job_enabled(self, job_id: str, enabled: bool) -> bool:
+        with self.engine.begin() as conn:
+            cursor = conn.execute(
+                sa.update(t.jobs)
+                .where(t.jobs.c.id == job_id, t.jobs.c.tenant_id == self.tenant)
+                .values(enabled=enabled)
+            )
+            return cursor.rowcount > 0
+
     # -- detection content -------------------------------------------------- #
 
     def sync_rules(self, kind: str, rows: Iterable[dict[str, Any]]) -> int:

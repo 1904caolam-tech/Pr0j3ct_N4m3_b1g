@@ -266,6 +266,48 @@ def test_export_writes_jsonl(monkeypatch, tmp_path, capsys):
     assert {line["class_uid"] for line in lines} == {2004}
 
 
+def test_job_lifecycle(monkeypatch, tmp_path, capsys):
+    _use_tmp_db(monkeypatch, tmp_path)
+    rules = str(FIXTURES / "yara" / "lab_rules.yar")
+
+    assert (
+        cli.main(
+            [
+                "job",
+                "add",
+                "--name",
+                "nightly",
+                "--tool",
+                "yara",
+                "--target",
+                "/lab",
+                "--rules",
+                rules,
+                "--every",
+                "30",
+            ]
+        )
+        == 0
+    )
+    assert "created job_" in capsys.readouterr().out
+
+    assert cli.main(["--json", "job", "list"]) == 0
+    jobs = json.loads(capsys.readouterr().out)
+    assert len(jobs) == 1
+    assert jobs[0]["spec"]["tool"] == "yara"
+
+    assert cli.main(["job", "run", jobs[0]["id"]]) == 0
+    run_output = capsys.readouterr().out
+    assert "run=run_" in run_output
+
+    # rescheduled, so a worker tick finds nothing due
+    assert cli.main(["--json", "worker", "--once"]) == 0
+    capsys.readouterr()
+
+    assert cli.main(["job", "disable", jobs[0]["id"]]) == 0
+    assert "disabled" in capsys.readouterr().out
+
+
 def test_unknown_command_exits_2():
     try:
         cli.main([])
