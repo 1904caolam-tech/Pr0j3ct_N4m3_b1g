@@ -28,3 +28,6 @@ vendor/
 Thumbs.db
 .idea/
 .vscode/
+
+# scratch files from lab sessions
+.tmp*
