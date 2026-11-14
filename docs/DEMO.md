@@ -91,4 +91,4 @@ rule as coverage until a test has actually fired.
 | Techniques tracked | 8 |
 | Validated | 2 (25%) |
 | Tests detected | 3/5 (60%) |
-| Test suite | 276 tests |
+| Test suite | 282 tests |

@@ -488,9 +488,16 @@ UI (5 screens), token auth, case UX (timeline, merge/split, assign), ECS/OCSF ex
 **AC:** browser shows coverage + findings + case timeline; triage writes history;
 `p4b export --format ocsf` produces one valid OCSF Detection Finding per line.
 
-### M4 — Real lab (2 days, later)
-Compose profile with real Zeek/Suricata + Wazuh integration script; 24h soak.
-**AC:** real alerts flow into P4B and coverage updates.
+### M4 — Real lab (done)
+Three Ubuntu 26.04 VMs on VMware: Wazuh 4.14.10 manager + agent (id 001),
+Suricata 8.0.3 live on `ens33`, Zeek 9.0.1. `verify-lab` reports 8 pass / 0 fail.
+**AC:** met — real alerts flow into P4B (22 findings, 13 assets), re-ingest is
+idempotent, and coverage is computed from that data (all `no-rule`, because the lab
+database has no Sigma/YARA content — honest, not a bug).
+
+Not done: the 24-hour soak. Alerts were generated and ingested over a short window;
+a day-long run would catch ID collisions and slow leaks but is not required for the
+AC above.
 
 > Rule: do not start M(n+1) until the AC of M(n) passes.
 

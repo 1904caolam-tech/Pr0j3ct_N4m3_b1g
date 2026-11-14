@@ -32,10 +32,33 @@ Editable diagrams live in [docs/FLOWS.md](docs/FLOWS.md).
 | **M1** | closed loop: Wazuh + Suricata + Zeek + Sigma + Atomic → coverage | **done** |
 | **M2** | scanners in the loop: Nuclei / Trivy / Gitleaks / YARA | **done** |
 | **M3** | product: UI, auth, cases, export, containers | **done** |
-| M4 | real lab: live sensors, soak test | next |
+| **M4** | real lab: Ubuntu 26.04 VMs, Wazuh + agent, Suricata, Zeek | **done** |
 
 The design is approved and lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
 decisions and their trade-offs are in [docs/ADR.md](docs/ADR.md).
+
+## The UI
+
+![Overview with demo data](assets/ui-overview.png)
+
+Demo dataset: 17 findings, 2/8 techniques validated (25%), one blind and one
+unvalidated technique. The same UI over the lab database — 22 findings from Wazuh,
+Suricata and Zeek — is [assets/ui-lab.png](assets/ui-lab.png).
+
+## Real lab
+
+Three Ubuntu 26.04 VMs on VMware (`p4b`, `sensor`, `siem`), all three sources run
+for real:
+
+| Source | Version | Result |
+|---|---|---|
+| Wazuh manager + agent | 4.14.10, agent id 001 | rule 100100 alert from agent `sensor` |
+| Suricata | 8.0.3, live on `ens33` | ET Open alerts on real cross-host HTTP |
+| Zeek | 9.0.1 | conn/http/notice logs |
+
+`p4b` ends with **22 findings / 13 assets**, re-ingest is idempotent, and
+`deploy/lab/verify-lab.sh` reports **8 pass / 0 fail / 0 skip**.
+Build notes and traps: [docs/LAB.md](docs/LAB.md).
 
 ## Quickstart
 
