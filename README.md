@@ -6,14 +6,59 @@ P4B normalizes telemetry from Wazuh, Zeek and Suricata, runs Nuclei / Trivy /
 Gitleaks / YARA scans, manages Sigma and YARA content as code, and uses Atomic Red
 Team to *prove* that detections actually fire.
 
-The product is one loop:
-
 ```
 telemetry + scans → findings → ATT&CK → coverage → tests → fix rules → repeat
 ```
 
 The question it answers: **which ATT&CK techniques am I blind to, and what is the
 evidence?**
+
+## Install in two minutes
+
+Requires Python 3.10+ (SQLite comes with Python). Docker and the scanner binaries are
+optional.
+
+```bash
+git clone https://github.com/1904caolam-tech/Pr0j3ct_N4m3_b1g.git
+cd Pr0j3ct_N4m3_b1g
+
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install -e ".[dev]"
+
+p4b init                           # schema (Alembic) + default tenant
+p4b demo --reset                   # bundled fixtures, no scanner binaries needed
+p4b serve                          # UI at http://127.0.0.1:8080, API docs at /docs
+```
+
+Expected demo output:
+
+```
+ingest     wazuh 2 · suricata 2 · zeek 3 · nuclei 2 · trivy 4 · gitleaks 2 · yara 2
+validation 3/5 detected (60.0%)
+coverage   2/8 validated (25.0%)
+cases      4
+findings   17 (open 17, max risk 10.0)
+report     data/reports/report.md
+```
+
+Everything lives under `data/` (`data/p4b.db`, `data/reports/`). To start over:
+`p4b demo --reset` or delete `data/`.
+
+In the UI: **Coverage** shows the eight techniques with the rule/test/observed bits,
+**Purple team** the five test runs, **Cases** the findings grouped by asset.
+
+Next: [docs/DEMO.md](docs/DEMO.md) is a 3-minute walkthrough, and
+[docs/LAB.md](docs/LAB.md) builds the real three-VM lab.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `p4b: command not found` | activate the venv (`source .venv/bin/activate` / `.venv\Scripts\activate`) |
+| `demo fixtures not found` | run from the repository root, or set `P4B_DEMO_ROOT=/path/to/demo` |
+| `address already in use` | `p4b serve --port 8081` |
+| Docker: `cannot connect to the Docker daemon` | start Docker Desktop (or `systemctl start docker`) |
 
 ![Ingest and normalization](assets/Input_Normalizing.png)
 
@@ -24,19 +69,6 @@ Editable diagrams live in [docs/FLOWS.md](docs/FLOWS.md).
 > Repository name is `Pr0j3ct_N4m3_b1g`; the package, CLI and images are `p4b`
 > (see [ADR-010](docs/ADR.md)).
 
-## Status
-
-| Milestone | Content | State |
-|---|---|---|
-| **M0** | foundation: config, schema, migrations, CLI, tests | **done** |
-| **M1** | closed loop: Wazuh + Suricata + Zeek + Sigma + Atomic → coverage | **done** |
-| **M2** | scanners in the loop: Nuclei / Trivy / Gitleaks / YARA | **done** |
-| **M3** | product: UI, auth, cases, export, containers | **done** |
-| **M4** | real lab: Ubuntu 26.04 VMs, Wazuh + agent, Suricata, Zeek | **done** |
-
-The design is approved and lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
-decisions and their trade-offs are in [docs/ADR.md](docs/ADR.md).
-
 ## The UI
 
 ![Overview with demo data](assets/ui-overview.png)
@@ -44,6 +76,44 @@ decisions and their trade-offs are in [docs/ADR.md](docs/ADR.md).
 Demo dataset: 17 findings, 2/8 techniques validated (25%), one blind and one
 unvalidated technique. The same UI over the lab database — 22 findings from Wazuh,
 Suricata and Zeek — is [assets/ui-lab.png](assets/ui-lab.png).
+
+## What is integrated
+
+| Layer | Tools | How P4B consumes them |
+|---|---|---|
+| Active scan | Nuclei, Trivy, Gitleaks | subprocess, native JSON output |
+| Detection content | Sigma, YARA | rule inventory, translation, indexing |
+| Telemetry | Wazuh, Zeek, Suricata | log/HTTP ingest, never embedded |
+| Validation | Atomic Red Team | test inventory + execution results |
+| Knowledge | OWASP CheatSheetSeries | remediation links (not copied text) |
+
+Nothing is linked in-process: Wazuh and Suricata are GPLv2, Sigma rules are DRL,
+cheatsheets are CC BY-SA. Adapters talk to tools through processes, files and HTTP
+(see [ADR-002](docs/ADR.md)).
+
+`p4b doctor` lists the ten tools and marks what is installed. Without binaries,
+`p4b ingest` and `p4b demo` still work; `p4b scan` needs the tool (or the scanner
+image below).
+
+## Run it in Docker
+
+```bash
+docker compose -f deploy/docker-compose.yml up --build
+# UI + API at http://localhost:8080   (OpenAPI docs at /docs)
+
+# demo inside the container (the data volume survives restarts)
+docker compose -f deploy/docker-compose.yml run --rm p4b demo --reset
+
+# one-shot scanner: nuclei/trivy/gitleaks/yara are baked into this image
+docker compose -f deploy/docker-compose.yml run --rm scanners scan \
+  --tool yara \
+  --rules /app/demo/fixtures/yara/lab_rules.yar \
+  --target /app/demo/fixtures/yara/samples/access.log
+```
+
+Two build targets share one Dockerfile: `app` (API + UI, no offensive tooling) and
+`scanner` (adds the four binaries, pinned by version). Compose keeps `scanners`
+behind a profile so `up` never starts it.
 
 ## Real lab
 
@@ -80,54 +150,18 @@ timestamp and are stamped at ingestion; the artifact reports both the stable has
 (identical) and the raw-hash variance. The `soak` GitHub workflow runs the same
 scripts on demand and uploads the artifacts.
 
-## Quickstart
+## Status
 
-```bash
-python -m pip install -e ".[dev]"
-p4b init          # data dir, schema (Alembic), default tenant
-p4b doctor        # detect the ten tools, record versions
-p4b demo          # full loop on bundled fixtures -> data/reports/report.md
-p4b serve         # UI at / and read-only API + OpenAPI docs at /docs
-p4b export --format ocsf   # NDJSON for another SIEM (ecs or ocsf)
-p4b worker --once          # run due scheduled scans (p4b job add ...)
-p4b config        # show effective settings
-pytest -q
-```
-
-`p4b doctor` reports which binaries are present. Missing tools are expected on a
-laptop — install them, or use the `p4b-scanner` image described below.
-
-## Run it in Docker
-
-```bash
-docker compose -f deploy/docker-compose.yml up --build
-# UI + API at http://localhost:8080   (OpenAPI docs at /docs)
-
-# demo inside the container (the data volume survives restarts)
-docker compose -f deploy/docker-compose.yml run --rm p4b demo --reset
-
-# one-shot scanner: nuclei/trivy/gitleaks/yara are baked into this image
-docker compose -f deploy/docker-compose.yml run --rm scanners scan \
-  --tool yara --rules /data/rules/lab.yar --target /data
-```
-
-Two build targets share one Dockerfile: `app` (API + UI, no offensive tooling) and
-`scanner` (adds the four binaries, pinned by version). Compose keeps `scanners`
-behind a profile so `up` never starts it.
-
-## What is integrated
-
-| Layer | Tools | How P4B consumes them |
+| Milestone | Content | State |
 |---|---|---|
-| Active scan | Nuclei, Trivy, Gitleaks | subprocess, native JSON output |
-| Detection content | Sigma, YARA | rule inventory, translation, indexing |
-| Telemetry | Wazuh, Zeek, Suricata | log/HTTP ingest, never embedded |
-| Validation | Atomic Red Team | test inventory + execution results |
-| Knowledge | OWASP CheatSheetSeries | remediation links (not copied text) |
+| **M0** | foundation: config, schema, migrations, CLI, tests | **done** |
+| **M1** | closed loop: Wazuh + Suricata + Zeek + Sigma + Atomic → coverage | **done** |
+| **M2** | scanners in the loop: Nuclei / Trivy / Gitleaks / YARA | **done** |
+| **M3** | product: UI, auth, cases, export, containers | **done** |
+| **M4** | real lab: Ubuntu 26.04 VMs, Wazuh + agent, Suricata, Zeek | **done** |
 
-Nothing is linked in-process: Wazuh and Suricata are GPLv2, Sigma rules are DRL,
-cheatsheets are CC BY-SA. Adapters talk to tools through processes, files and HTTP
-(see [ADR-002](docs/ADR.md)).
+The design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); decisions and
+trade-offs in [docs/ADR.md](docs/ADR.md).
 
 ## Layout
 
@@ -136,17 +170,22 @@ src/p4b/
   domain/     severity, risk, fingerprint, dataclasses
   canon/      asset normalization (pure functions)
   store/      SQLAlchemy Core tables, repositories, migrations bridge
-  tooling.py  the ten tools: availability, version, license
-  cli.py      p4b init | doctor | config | version
+  api/        FastAPI app, auth, triage and ingest endpoints
+  web/        single-file UI (no build step)
+  adapters/   one parser per tool
+  content/    Sigma/YARA inventory and query translation
+  scan/       scope-enforced runner
+  sinks/      ECS and OCSF exports
+  validate/   coverage matrix and execution matching
+  cli.py      the p4b command
 migrations/   Alembic environment and revisions
-tests/        unit tests (in-memory SQLite)
-docs/         architecture + ADRs + lab guide
+tests/        unit and API tests
+deploy/       Dockerfile, compose, lab and soak scripts
+docs/         architecture, ADRs, lab guide, demo script
 ```
 
-## Requirements
-
-Python 3.10+, SQLite (bundled). Postgres is supported by changing `db_url`; the
-schema avoids SQLite-only constructs.
+Python 3.10+ and SQLite (bundled) are enough. Postgres works by changing `db_url`;
+the schema avoids SQLite-only constructs.
 
 ## License
 

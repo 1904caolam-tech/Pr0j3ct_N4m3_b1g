@@ -6,6 +6,33 @@
 This is the physical layout that the M4 milestone assumes. M1/M2/M3 run fine on a
 single laptop with fixtures — the lab adds real sensors and real alerts.
 
+## TL;DR — the path that was actually verified
+
+The tested lab did **not** use the 192.168.56 host-only layout described below. It
+used the VMware NAT network with three Ubuntu 26.04 VMs and worked end to end:
+
+| VM | RAM / disk | Role |
+|---|---|---|
+| `p4b` | 3 GB | P4B API + SQLite (Python 3.14 venv) |
+| `sensor` | 2 GB | Suricata 8.0.3 live, Zeek 9.0.1, Wazuh agent |
+| `siem` | 2.5 GB / **40 GB** | Wazuh manager 4.14.10 (Docker) |
+
+Per VM, once SSH works:
+
+```bash
+git clone https://github.com/1904caolam-tech/Pr0j3ct_N4m3_b1g.git ~/p4b
+cd ~/p4b
+# p4b     sudo LAB_USER=$USER PROJECT_DIR=$HOME/p4b bash deploy/lab/bootstrap-p4b.sh
+# sensor  sudo bash deploy/lab/bootstrap-sensor.sh
+# siem    sudo bash deploy/lab/bootstrap-siem.sh
+# siem    sudo bash deploy/lab/wazuh-configure.sh
+# sensor  sudo MANAGER=<siem-ip> bash deploy/lab/wazuh-agent.sh
+```
+
+Then on `p4b`: `deploy/lab/verify-lab.sh` → expect `passed=8 failed=0`.
+The sections below keep the original host-only plan and budget; the
+[first-run notes](#notes-from-the-first-real-run-ubuntu-2604) list what differed.
+
 ## 1. Why three VMs
 
 Each layer must be a separate machine for the data to be meaningful:
