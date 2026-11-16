@@ -191,7 +191,9 @@ for real:
 
 `p4b` ends with **28 findings / 15 assets**, re-ingest is idempotent, and
 `deploy/lab/verify-lab.sh` reports **8 pass / 0 fail / 0 skip**.
-Build notes and traps: [docs/LAB.md](docs/LAB.md).
+Build notes and traps: [docs/LAB.md](docs/LAB.md). Running next to a Wazuh
+all-in-one (manager + indexer + dashboard) is documented in
+[docs/WITH-WAZUH.md](docs/WITH-WAZUH.md#8-variant-all-in-one-verified-in-the-lab).
 
 ## Verification
 
