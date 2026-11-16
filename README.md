@@ -18,6 +18,19 @@ evidence?**
 Requires Python 3.10+ (SQLite comes with Python). Docker and the scanner binaries are
 optional.
 
+**Where it has been tested**
+
+| Platform | Status | Notes |
+|---|---|---|
+| Windows 11, Python 3.10 | tested | host that produced the soak/pytest artifacts |
+| Ubuntu 26.04 LTS, Python 3.14 | tested | the three-VM lab (`p4b` VM) |
+| Debian slim container, Python 3.12 | tested | the `p4b` image |
+| ubuntu-latest CI, Python 3.10/3.11/3.12 | tested | GitHub Actions matrix |
+| macOS | not tested | pure Python, expected to work; venv activation is `source .venv/bin/activate` |
+
+The lab guide ([docs/LAB.md](docs/LAB.md)) assumes a **Windows host with VMware
+Workstation** and **Ubuntu guests**. The Docker section works on any OS with Docker.
+
 ```bash
 git clone https://github.com/1904caolam-tech/Pr0j3ct_N4m3_b1g.git
 cd Pr0j3ct_N4m3_b1g
