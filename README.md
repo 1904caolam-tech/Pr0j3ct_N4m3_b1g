@@ -109,6 +109,22 @@ cheatsheets are CC BY-SA. Adapters talk to tools through processes, files and HT
 `p4b ingest` and `p4b demo` still work; `p4b scan` needs the tool (or the scanner
 image below).
 
+## What P4B is not
+
+P4B is **not a SIEM and not a sensor**. It is the detection-engineering layer on top
+of them.
+
+| Capability | P4B | Who does it instead |
+|---|---|---|
+| Capture packets | no | Suricata / Zeek / a Wazuh agent |
+| Store and search raw logs | no — normalized findings only, plus scan artifacts | Wazuh indexer, Elastic, Splunk |
+| Real-time correlation and alerting | no — ingest is file/HTTP, analysis is on demand | the SIEM |
+| ATT&CK coverage from rules + tests + observed detections | **yes** | — |
+
+`p4b` receives findings; it never sees a packet. Whether you capture a network at all
+is decided by *where the sensor sits*: a gateway/NAT box, a SPAN/mirror port, a TAP, or
+a mirrored virtual switch — not by P4B.
+
 ## Run it in Docker
 
 ```bash
