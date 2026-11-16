@@ -33,6 +33,60 @@ Then on `p4b`: `deploy/lab/verify-lab.sh` → expect `passed=8 failed=0`.
 The sections below keep the original host-only plan and budget; the
 [first-run notes](#notes-from-the-first-real-run-ubuntu-2604) list what differed.
 
+## Hyper-V instead of VMware
+
+Hyper-V works for this lab, but three things decide whether it goes smoothly.
+
+**1. Pick one hypervisor.** If Hyper-V is enabled, VMware Workstation runs on top of
+the Hyper-V platform (slower, and some nested features stop working). Enable Hyper-V
+only if you are not using VMware for this lab.
+
+**2. Create a NAT switch with a fixed subnet.** The built-in "Default Switch" hands
+out `172.x` addresses that change after every host reboot — the bootstrap scripts and
+`verify-lab.sh` assume stable addresses. Once, in an elevated PowerShell:
+
+```powershell
+New-VMSwitch -Name "P4B-Lab" -SwitchType Internal
+New-NetIPAddress -InterfaceAlias "vEthernet (P4B-Lab)" -IPAddress 192.168.56.1 -PrefixLength 24
+New-NetNat -Name "P4B-Lab" -InternalIPInterfaceAddressPrefix 192.168.56.0/24
+```
+
+Attach every VM to `P4B-Lab` and give it a static address in the guest
+(`/etc/netplan/*.yaml`, adapter is usually `eth0` on Hyper-V):
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      addresses: [192.168.56.10/24]      # .10 p4b, .20 sensor, .30 siem
+      routes: [{to: default, via: 192.168.56.1}]
+      nameservers: {addresses: [1.1.1.1]}
+```
+
+If `New-NetNat` complains, another NAT already exists (`Get-NetNat`); remove or reuse
+it instead of stacking a second one.
+
+**3. Install openssh-server during the Ubuntu install** (the installer has a checkbox).
+The first real run lost time because the VMs had no sshd and no VMware Tools, so the
+only way in was the console.
+
+Sizing (the same budget as the VMware plan, with one correction learned the hard way):
+
+| VM | RAM | Disk | Note |
+|---|---|---|---|
+| `p4b` | 3 GB | 20 GB | Python + SQLite, no Docker required |
+| `sensor` | 2 GB | 20 GB | Suricata/Zeek; Docker only for the Wazuh agent |
+| `siem` | 2.5 GB | **40 GB** | Wazuh manager; 20 GB fills up from CVE feeds |
+
+Prefer **Ubuntu 24.04 LTS** over 26.04: Wazuh's apt repo, Zeek's OBS build and the
+Suricata PPA all publish for 24.04, so the bootstrap scripts need no fallbacks. 26.04
+also works — that is what the first run used — but expect the fixes described in the
+notes below.
+
+After the guests boot, the workflow is identical to the VMware path: SSH in, clone the
+repository, run the four `bootstrap-*` scripts from the TL;DR, then `verify-lab.sh`.
+
 ## 1. Why three VMs
 
 Each layer must be a separate machine for the data to be meaningful:
