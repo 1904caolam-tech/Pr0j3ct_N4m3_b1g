@@ -17,6 +17,39 @@ differences that matter are listed below rather than hidden.
 So the realistic layout is: **P4B on the Windows server**, sensors and the Wazuh
 manager on Linux, data arriving through HTTP ingest or a copied `alerts.json`.
 
+## Can this box monitor live traffic?
+
+**No, not by itself.** P4B contains no packet-capture code — it ingests files or HTTP
+bodies that a sensor produced. Installing it on the Windows server gives you the API,
+UI, correlation and coverage; it does not give you a sensor.
+
+What *can* run on the Windows server:
+
+| Option | Sees | Status |
+|---|---|---|
+| Wazuh agent for Windows | host telemetry: event log, FIM, processes, network connections | supported by Wazuh; sends to a Linux manager |
+| Suricata Windows build + Npcap | packets on the server's own NIC, plus mirrored traffic if the switch port is a SPAN | same `eve.json` schema; `p4b ingest suricata` is untested on Windows |
+| Zeek | — | no practical Windows build |
+| P4B | nothing | no capture code |
+
+A normal switched network does not deliver other hosts' unicast traffic to this NIC.
+To see a whole segment you need a SPAN/mirror port, a TAP, or — in a Hyper-V lab —
+port mirroring on the virtual switch feeding a sensor VM.
+
+The supported shape is therefore:
+
+```
+Linux sensors (Suricata/Zeek) --HTTP or copied logs--> P4B on Windows
+```
+
+- real time: `deploy/wazuh/custom-p4b.py` posts each alert to
+  `POST /api/v1/ingest/wazuh`;
+- batch: copy `eve.json` / Zeek logs, then `p4b ingest <tool> <path>` on a schedule.
+  There is no built-in ingest scheduler, so use Task Scheduler or cron for this path.
+
+Making the Windows box itself a sensor would mean writing a capture adapter (pktmon
+`etl2pcap` or Npcap) and a pcap parser; that does not exist today.
+
 ## Install
 
 1. Install **Python 3.12 x64** from python.org and tick *Add python.exe to PATH*.
