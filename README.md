@@ -23,6 +23,7 @@ optional.
 | Platform | Status | Notes |
 |---|---|---|
 | Windows 11, Python 3.10 | tested | host that produced the soak/pytest artifacts |
+| Windows Server 2022 | prepared, not executed | native Python install (see below); Docker Desktop unsupported |
 | Ubuntu 26.04 LTS, Python 3.14 | tested | the three-VM lab (`p4b` VM) |
 | Debian slim container, Python 3.12 | tested | the `p4b` image |
 | ubuntu-latest CI, Python 3.10/3.11/3.12 | tested | GitHub Actions matrix |
@@ -128,6 +129,21 @@ Two build targets share one Dockerfile: `app` (API + UI, no offensive tooling) a
 `scanner` (adds the four binaries, pinned by version). Compose keeps `scanners`
 behind a profile so `up` never starts it.
 
+## Windows Server 2022
+
+Native Python install — Docker Desktop does not run on Windows Server, and the Wazuh
+manager/sensors stay on Linux.
+
+```powershell
+.\deploy\windows\install-service.ps1 -InstallDir C:\p4b
+.\deploy\windows\verify-windows.ps1 -InstallDir C:\p4b
+```
+
+The installer creates the venv, writes `p4b.yaml` (bind `0.0.0.0:8080`,
+`require_auth: true`, SQLite under `C:\p4b\data`), issues one bearer token and
+registers a startup scheduled task running `p4b serve` as `SYSTEM`.
+Details, TLS/ARR and data-collection options: [deploy/windows/README.md](deploy/windows/README.md).
+
 ## Real lab
 
 Three Ubuntu 26.04 VMs on VMware (`p4b`, `sensor`, `siem`), all three sources run
@@ -197,8 +213,10 @@ deploy/       Dockerfile, compose, lab and soak scripts
 docs/         architecture, ADRs, lab guide, demo script
 ```
 
-Python 3.10+ and SQLite (bundled) are enough. Postgres works by changing `db_url`;
-the schema avoids SQLite-only constructs.
+Python 3.10+ and SQLite (bundled) are enough. For Postgres:
+`pip install -e ".[postgres]"` (psycopg 3) and set
+`db_url: postgresql+psycopg://user:pass@host:5432/p4b`; the schema avoids
+SQLite-only constructs.
 
 ## License
 
