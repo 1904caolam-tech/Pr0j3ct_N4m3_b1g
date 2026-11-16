@@ -109,6 +109,23 @@ cheatsheets are CC BY-SA. Adapters talk to tools through processes, files and HT
 `p4b ingest` and `p4b demo` still work; `p4b scan` needs the tool (or the scanner
 image below).
 
+## Why this exists
+
+Every OSS stack already produces findings. None of them answers the question a
+detection engineer actually owns: *which ATT&CK techniques do we detect, with what
+evidence, and which ones are blind?*
+
+- Wazuh / Suricata / Zeek tell you what fired, not what you would miss.
+- Sigma gives you rules, not proof that your pipeline runs them.
+- Atomic Red Team gives you tests, not the link between a test and a detection.
+
+P4B joins the three — rules (Sigma/YARA), tests (Atomic) and observations (real
+findings) — into one coverage matrix where every cell is backed by something that
+happened. That is the goal. It is deliberately small: one host, SQLite, no queue.
+
+Non-goals: being a SIEM, capturing traffic, retaining raw logs, real-time alerting,
+HA, multi-tenant. Those are solved by Wazuh/Elastic/Splunk; P4B reads their output.
+
 ## What P4B is not
 
 P4B is **not a SIEM and not a sensor**. It is the detection-engineering layer on top
