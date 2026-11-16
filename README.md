@@ -88,8 +88,9 @@ Editable diagrams live in [docs/FLOWS.md](docs/FLOWS.md).
 ![Overview with demo data](assets/ui-overview.png)
 
 Demo dataset: 17 findings, 2/8 techniques validated (25%), one blind and one
-unvalidated technique. The same UI over the lab database — 22 findings from Wazuh,
-Suricata and Zeek — is [assets/ui-lab.png](assets/ui-lab.png).
+unvalidated technique. The same UI over the lab database — 28 findings from Wazuh
+(all-in-one + two agents), Suricata and Zeek — is
+[assets/ui-lab.png](assets/ui-lab.png).
 
 ## What is integrated
 
@@ -184,11 +185,11 @@ for real:
 
 | Source | Version | Result |
 |---|---|---|
-| Wazuh manager + agent | 4.14.10, agent id 001 | rule 100100 alert from agent `sensor` |
+| Wazuh all-in-one + agents | 4.14.10, agents `p4b` (002) and `sensor` (003) | lab rules 100100/100101/100102 fire through the real agent path |
 | Suricata | 8.0.3, live on `ens33` | ET Open alerts on real cross-host HTTP |
 | Zeek | 9.0.1 | conn/http/notice logs |
 
-`p4b` ends with **22 findings / 13 assets**, re-ingest is idempotent, and
+`p4b` ends with **28 findings / 15 assets**, re-ingest is idempotent, and
 `deploy/lab/verify-lab.sh` reports **8 pass / 0 fail / 0 skip**.
 Build notes and traps: [docs/LAB.md](docs/LAB.md).
 
