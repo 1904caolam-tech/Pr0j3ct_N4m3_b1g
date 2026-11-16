@@ -1,0 +1,20 @@
+<!-- P4B lab rules: injected events from deploy/lab/inject-logs.sh -->
+<group name="p4b_lab,">
+  <rule id="100100" level="10">
+    <match>P4B_LAB_ALERT</match>
+    <description>P4B lab: simulated detection event</description>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100101" level="7">
+    <match>P4B_LAB_INFO</match>
+    <description>P4B lab: simulated informational event</description>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100102" level="12">
+    <match>P4B_LAB_CRIT</match>
+    <description>P4B lab: simulated critical event</description>
+    <group>p4b_lab,</group>
+  </rule>
+</group>

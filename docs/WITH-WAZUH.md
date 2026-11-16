@@ -129,3 +129,70 @@ with evidence.
 | collect, decode, store, search, alert, compliance | Wazuh all-in-one |
 | sensors | Suricata / Zeek / Wazuh agent |
 | content inventory, test correlation, coverage, evidence | P4B |
+
+## 8. Variant: all-in-one (verified in the lab)
+
+The M4 lab ran the official `wazuh/wazuh-docker` single-node stack (v4.14.10) on a
+**3.3 GB RAM / 40 GB disk** Ubuntu 26.04 VM:
+
+```bash
+sysctl -w vm.max_map_count=262144
+git clone --depth 1 -b v4.14.10 https://github.com/wazuh/wazuh-docker.git /opt/wazuh-docker
+cd /opt/wazuh-docker/single-node
+sed -i 's/-Xms1g -Xmx1g/-Xms512m -Xmx512m/' docker-compose.yml   # 3.3 GB VM
+docker compose -f generate-indexer-certs.yml run --rm generator
+docker compose up -d
+```
+
+What the run confirmed: indexer `green`, dashboard answers `302` on
+`https://<siem>/`, manager runs 15 daemons, and the default credentials are
+`admin` / `SecretPassword` (change them).
+
+Lab rule set (levels 7/10/12):
+
+```bash
+docker cp deploy/lab/wazuh-lab-rules.xml \
+  single-node-wazuh.manager-1:/var/ossec/etc/rules/wazuh-lab-rules.xml
+docker compose exec -T wazuh.manager /var/ossec/bin/wazuh-control restart
+```
+
+Agents on two hosts, enrolled to the manager:
+
+```bash
+sudo MANAGER=192.168.159.167 AGENT_NAME=sensor bash deploy/lab/wazuh-agent.sh
+sudo MANAGER=192.168.159.167 AGENT_NAME=p4b    bash deploy/lab/wazuh-agent.sh
+```
+
+If the manager still holds an old key for that name (`Duplicate agent name` in the
+agent log), remove it and let the agent re-enroll:
+
+```bash
+printf 'y\n' | docker compose exec -T wazuh.manager /var/ossec/bin/manage_agents -r <id>
+sudo docker restart wazuh-agent
+```
+
+Synthetic events travel the real path (logcollector → manager rule → alerts.json):
+
+```bash
+sudo bash deploy/lab/inject-logs.sh 12
+```
+
+Then copy `alerts.json` out of the manager and ingest it:
+
+```bash
+docker cp single-node-wazuh.manager-1:/var/ossec/logs/alerts/alerts.json /tmp/aio-alerts.json
+# copy to the p4b host, then:
+p4b ingest wazuh /tmp/aio-alerts.json
+```
+
+Result of the lab run:
+
+| agent | id | lab alerts | ingested |
+|---|---|---|---|
+| `p4b` | 002 | 12 | crit/detection/info findings on asset `p4b` |
+| `sensor` | 003 | 6 | crit/detection/info findings on asset `sensor` |
+| manager itself | 000 | 187 | SCA/agent-connection noise, mostly below level 7 |
+
+64 of 200 alerts were at level ≥ 7; P4B created 6 new findings and merged 58 into
+existing ones (fingerprint dedupe), ending at **28 findings / 15 assets / 8 cases**.
+`verify-lab` stayed at **8 pass / 0 fail**.
