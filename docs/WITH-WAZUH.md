@@ -180,6 +180,17 @@ Synthetic events travel the real path (logcollector → manager rule → alerts.
 sudo bash deploy/lab/inject-logs.sh 12
 ```
 
+For a dashboard with real variety, `deploy/lab/inject-lab-traffic.sh` emits a
+deterministic mix over 13 markers / 13 rules (levels 3–14, 13 ATT&CK techniques):
+
+```bash
+sudo bash deploy/lab/inject-lab-traffic.sh --count 200 --seed 42
+```
+
+Running it on both agents produced 629 indexed alerts, 13 techniques and six rule
+levels (3, 5, 7, 10, 12, 14). P4B ingests level ≥ 7 by default, so the info/low
+events stay in Wazuh only.
+
 Then copy `alerts.json` out of the manager and ingest it:
 
 ```bash

@@ -1,4 +1,4 @@
-<!-- P4B lab rules: injected events from deploy/lab/inject-logs.sh -->
+<!-- P4B lab rules: injected events from deploy/lab/inject-logs.sh and inject-lab-traffic.sh -->
 <group name="p4b_lab,">
   <rule id="100100" level="10">
     <match>P4B_LAB_ALERT</match>
@@ -23,6 +23,96 @@
     <description>P4B lab: simulated critical event</description>
     <mitre>
       <id>T1190</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100110" level="10">
+    <match>P4B_SIM_PS</match>
+    <description>P4B lab: encoded PowerShell command line</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100111" level="12">
+    <match>P4B_SIM_LSASS</match>
+    <description>P4B lab: suspicious access to LSASS memory</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100112" level="7">
+    <match>P4B_SIM_WEB</match>
+    <description>P4B lab: HTTP beacon to a rare destination</description>
+    <mitre>
+      <id>T1071.001</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100113" level="7">
+    <match>P4B_SIM_PHISH</match>
+    <description>P4B lab: mail attachment with an executable macro</description>
+    <mitre>
+      <id>T1566</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100114" level="10">
+    <match>P4B_SIM_RDP</match>
+    <description>P4B lab: RDP logon from an unusual source</description>
+    <mitre>
+      <id>T1021.001</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100115" level="3">
+    <match>P4B_SIM_SYSINFO</match>
+    <description>P4B lab: host enumeration commands</description>
+    <mitre>
+      <id>T1082</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100116" level="7">
+    <match>P4B_SIM_ACCT</match>
+    <description>P4B lab: local account created outside change window</description>
+    <mitre>
+      <id>T1136.001</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100117" level="10">
+    <match>P4B_SIM_SUDO</match>
+    <description>P4B lab: sudo used to spawn a shell</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100118" level="14">
+    <match>P4B_SIM_RANSOM</match>
+    <description>P4B lab: mass file rename consistent with ransomware</description>
+    <mitre>
+      <id>T1486</id>
+    </mitre>
+    <group>p4b_lab,</group>
+  </rule>
+
+  <rule id="100119" level="5">
+    <match>P4B_SIM_DELETE</match>
+    <description>P4B lab: security log file deleted</description>
+    <mitre>
+      <id>T1070.004</id>
     </mitre>
     <group>p4b_lab,</group>
   </rule>
