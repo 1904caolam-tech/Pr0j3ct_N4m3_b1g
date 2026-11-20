@@ -148,13 +148,16 @@ What the run confirmed: indexer `green`, dashboard answers `302` on
 `https://<siem>/`, manager runs 15 daemons, and the default credentials are
 `admin` / `SecretPassword` (change them).
 
-Lab rule set (levels 7/10/12):
+Lab rule set (levels 7/10/12), MITRE-mapped so the dashboard ATT&CK views have data:
 
 ```bash
 docker cp deploy/lab/wazuh-lab-rules.xml \
   single-node-wazuh.manager-1:/var/ossec/etc/rules/wazuh-lab-rules.xml
 docker compose exec -T wazuh.manager /var/ossec/bin/wazuh-control restart
 ```
+
+The rules carry `<mitre><id>T1110</id></mitre>` (ids only — Wazuh rejects a
+`<technique>` element and fills tactic/technique from its own MITRE database).
 
 Agents on two hosts, enrolled to the manager:
 

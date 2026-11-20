@@ -3,18 +3,27 @@
   <rule id="100100" level="10">
     <match>P4B_LAB_ALERT</match>
     <description>P4B lab: simulated detection event</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
     <group>p4b_lab,</group>
   </rule>
 
   <rule id="100101" level="7">
     <match>P4B_LAB_INFO</match>
     <description>P4B lab: simulated informational event</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
     <group>p4b_lab,</group>
   </rule>
 
   <rule id="100102" level="12">
     <match>P4B_LAB_CRIT</match>
     <description>P4B lab: simulated critical event</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
     <group>p4b_lab,</group>
   </rule>
 </group>
